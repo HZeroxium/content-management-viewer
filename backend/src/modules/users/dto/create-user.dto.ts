@@ -8,12 +8,14 @@ export class CreateUserDto {
   email: string;
 
   @IsNotEmpty()
-  @MinLength(8)
+  @MinLength(6)
   password: string;
 
   @IsNotEmpty()
   name: string;
 
-  @IsEnum(['admin', 'editor', 'client'] as const)
+  @IsEnum(['admin', 'editor', 'client'] as const, {
+    message: 'role must be one of the following values: admin, editor, client',
+  })
   role: Role;
 }

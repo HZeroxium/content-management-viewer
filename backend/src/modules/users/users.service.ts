@@ -14,10 +14,8 @@ export class UsersService {
 
   /** Create a new user, hashing password, setting audit fields */
   async create(dto: CreateUserDto, createdBy: string): Promise<User> {
-    const hashed = await hash(dto.password, 10);
     const created = new this.userModel({
       ...dto,
-      password: hashed,
       createdBy,
       updatedBy: createdBy,
     });

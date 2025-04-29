@@ -10,6 +10,7 @@ import {
   Param,
   Request,
   UseGuards,
+  Patch,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -46,7 +47,7 @@ export class UsersController {
 
   /** Admin only */
   @Roles('admin')
-  @Put(':id')
+  @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Request() req) {
     return this.usersService.update(id, dto, req.user.userId);
   }

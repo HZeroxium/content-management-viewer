@@ -7,6 +7,7 @@ export type UserDocument = User & Document;
 
 @Schema({ timestamps: true })
 export class User {
+  [x: string]: any;
   // Add explicit _id field to make TypeScript aware of it
   _id: Types.ObjectId;
 

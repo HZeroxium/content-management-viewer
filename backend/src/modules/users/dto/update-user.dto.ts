@@ -11,6 +11,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   password?: string;
 
   @IsOptional()
-  @IsEnum(['admin', 'editor', 'client'] as const)
+  @IsEnum(['admin', 'editor', 'client'] as const, {
+    message: 'role must be one of the following values: admin, editor, client',
+  })
   role?: Role;
 }

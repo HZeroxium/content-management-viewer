@@ -12,7 +12,7 @@ import { CacheService } from '@common/cache/cache.service';
 import { randomUUID } from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { User, UserDocument } from '@users/schemas/user.schema';
 
 @Injectable()
 export class AuthService {
@@ -22,12 +22,6 @@ export class AuthService {
     private readonly cacheService: CacheService,
   ) {}
 
-  /**
-   * Register a new user
-   * - Check if email already exists
-   * - Create new user with SYSTEM as creator
-   * - Return user without password
-   */
   async register(registerDto: RegisterDto) {
     // Check if email already exists
     const existingUser = await this.usersService.findByEmail(registerDto.email);
@@ -35,36 +29,45 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Create new user (with SYSTEM as createdBy)
-    const user = await this.usersService.create(registerDto, 'SYSTEM');
+    // Verify passwords match
+    if (registerDto.password !== registerDto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    // Create new user with default values
+    const user = await this.usersService.create(
+      {
+        email: registerDto.email,
+        password: registerDto.password,
+        name: `User-${randomUUID().substring(0, 8)}`, // Generate default name
+        role: 'client', // Default role
+      },
+      'SYSTEM',
+    );
 
     // Return user without password
     return {
-      id: user._id.toString(), // Convert ObjectId to string for safe JSON serialization
+      id: user._id.toString(),
       email: user.email,
       name: user.name,
       role: user.role,
     };
   }
 
-  /**
-   * Validate user credentials.
-   * Throws if invalid.
-   */
   async validateUser(email: string, pass: string): Promise<UserDocument> {
     const user = await this.usersService.findByEmail(email);
-    if (!user || !(await this.usersService.verifyPassword(user, pass))) {
+
+    if (!user) {
+      throw new UnauthorizedException('User with this email not found');
+    }
+
+    if (!(await this.usersService.verifyPassword(user, pass))) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
     return user;
   }
 
-  /**
-   * On successful login:
-   * - Generate JWT with jti (JWT ID)
-   * - Store jti in Redis
-   * - Return access token
-   */
   async login(user: any) {
     const jti = randomUUID();
     const payload = { sub: user.id, role: user.role, jti };
@@ -81,16 +84,10 @@ export class AuthService {
     };
   }
 
-  /**
-   * Remove the jti from Redis to revoke the token.
-   */
   async logout(jti: string) {
     await this.cacheService.del(`jti:${jti}`);
   }
 
-  /**
-   * Change user's password
-   */
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
     // Get full user document to verify password
     const user = await this.usersService.findByEmail(userId);
@@ -119,5 +116,23 @@ export class AuthService {
       { password: dto.newPassword },
       userId,
     );
+  }
+
+  /**
+   * Get user profile data
+   * Return clean user object without sensitive information
+   */
+  async getProfile(userId: string) {
+    const user = await this.usersService.findOne(userId);
+
+    // Return only necessary fields (password already excluded by UsersService)
+    return {
+      id: user._id?.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 }

@@ -7,6 +7,6 @@ export class LoginDto {
   email: string;
 
   @IsNotEmpty()
-  @MinLength(8)
+  @MinLength(6) // Match the registration requirement
   password: string;
 }
