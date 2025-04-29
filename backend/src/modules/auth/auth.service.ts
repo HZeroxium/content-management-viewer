@@ -34,12 +34,12 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    // Create new user with default values
+    // Create new user (name is optional, will be generated if not provided)
     const user = await this.usersService.create(
       {
         email: registerDto.email,
         password: registerDto.password,
-        name: `User-${randomUUID().substring(0, 8)}`, // Generate default name
+        name: registerDto.name, // This will be undefined if not provided
         role: 'client', // Default role
       },
       'SYSTEM',

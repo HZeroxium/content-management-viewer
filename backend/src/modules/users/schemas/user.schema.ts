@@ -28,6 +28,14 @@ export class User {
 
   @Prop()
   updatedBy: string;
+
+  // Soft delete properties
+  @Prop({ type: Date, default: null })
+  deletedAt: Date | null;
+
+  // Fix: Explicitly specify String type for deletedBy field
+  @Prop({ type: String, default: null })
+  deletedBy: string | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
