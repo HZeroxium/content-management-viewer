@@ -25,6 +25,13 @@ export class Content {
 
   @Prop() createdBy: string;
   @Prop() updatedBy: string;
+
+  // Soft delete properties
+  @Prop({ type: Date, default: null })
+  deletedAt: Date | null;
+
+  @Prop({ type: String, default: null })
+  deletedBy: string | null;
 }
 
 export const ContentSchema = SchemaFactory.createForClass(Content);
