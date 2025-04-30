@@ -15,30 +15,46 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ContentService } from './content.service';
-import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { JwtAuthGuard } from '@auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 import { Roles } from '@common/decorators/roles.decorator';
 import { PaginationQueryDto } from '@common/dto/pagination.dto';
 import { ContentResponseDto } from './dto/content-response.dto';
+import { CreateContentWithBlocksDto } from './dto/create-content-with-blocks.dto';
+import { Public } from '@common/decorators/public.decorator';
 
 @Controller('content')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
-  /** Editor or Admin only - Create new content */
+  /**
+   * POST /content
+   * Create content with multiple block types in a single request
+   * Supports text blocks, image blocks with file associations, and video blocks
+   * Editors & Admins only
+   */
   @Roles('editor', 'admin')
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async create(
-    @Body() dto: CreateContentDto,
+    @Body() dto: CreateContentWithBlocksDto,
     @Request() req,
-  ): Promise<{ content: ContentResponseDto; message: string }> {
-    const content = await this.contentService.create(dto, req.user.userId);
+  ): Promise<{
+    success: boolean;
+    content: ContentResponseDto;
+    message: string;
+    transactionId: string;
+  }> {
+    const { content, transactionId } =
+      await this.contentService.createContentWithBlocks(dto, req.user.userId);
+
     return {
+      success: true,
       content,
-      message: `Content "${content.title}" has been created successfully`,
+      message: `Content "${content.title}" with ${content.blocks.length} blocks has been created successfully`,
+      transactionId,
     };
   }
 
@@ -70,9 +86,14 @@ export class ContentController {
     @Param('id') id: string,
     @Body() dto: UpdateContentDto,
     @Request() req,
-  ): Promise<{ content: ContentResponseDto; message: string }> {
+  ): Promise<{
+    success: boolean;
+    content: ContentResponseDto;
+    message: string;
+  }> {
     const content = await this.contentService.update(id, dto, req.user.userId);
     return {
+      success: true,
       content,
       message: `Content "${content.title}" has been updated successfully`,
     };
@@ -81,22 +102,49 @@ export class ContentController {
   /** Admin only - Soft delete content */
   @Roles('admin')
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
-    return this.contentService.remove(id, req.user.userId);
+  async remove(@Param('id') id: string, @Request() req) {
+    const result = await this.contentService.remove(id, req.user.userId);
+    return {
+      success: true,
+      ...result,
+    };
   }
 
   /** Admin only - Restore deleted content */
   @Roles('admin')
   @Post(':id/restore')
-  restore(@Param('id') id: string, @Request() req) {
-    return this.contentService.restore(id, req.user.userId);
+  async restore(@Param('id') id: string, @Request() req) {
+    const result = await this.contentService.restore(id, req.user.userId);
+    return {
+      success: true,
+      ...result,
+    };
   }
 
   /** Admin only - Permanently delete content */
   @Roles('admin')
   @HttpCode(HttpStatus.OK)
   @Delete(':id/permanent')
-  permanentDelete(@Param('id') id: string) {
-    return this.contentService.permanentDelete(id);
+  async permanentDelete(@Param('id') id: string) {
+    const result = await this.contentService.permanentDelete(id);
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  /**
+   * GET /content/health
+   * Health check endpoint
+   * Public access
+   */
+  @Public()
+  @Get('health')
+  @HttpCode(HttpStatus.OK)
+  async healthCheck(): Promise<{ status: string; timestamp: string }> {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    };
   }
 }

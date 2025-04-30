@@ -6,18 +6,24 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ConflictException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Content, ContentDocument } from './schemas/content.schema';
-import { CreateContentDto } from './dto/create-content.dto';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Connection, ClientSession } from 'mongoose';
+import { Content, ContentDocument, Block } from './schemas/content.schema';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { ContentGateway } from '@websocket/content.gateway';
 import { ContentResponseDto } from './dto/content-response.dto';
 import {
+  CreateContentWithBlocksDto,
+  ContentBlockDto,
+} from './dto/create-content-with-blocks.dto';
+import {
   PaginationQueryDto,
   PaginatedResponseDto,
 } from '@common/dto/pagination.dto';
+import { FilesService } from '@modules/files/files.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ContentService {
@@ -25,39 +31,238 @@ export class ContentService {
 
   constructor(
     @InjectModel(Content.name) private contentModel: Model<ContentDocument>,
+    @InjectConnection() private connection: Connection,
     private readonly gateway: ContentGateway,
+    private readonly filesService: FilesService,
   ) {}
 
-  /** Create new content, record who created it */
-  async create(
-    dto: CreateContentDto,
-    createdBy: string,
-  ): Promise<ContentResponseDto> {
+  /**
+   * Create content with multiple block types.
+   * If a replica set is detected, wrap in a transaction; otherwise just save.
+   */
+  async createContentWithBlocks(
+    dto: CreateContentWithBlocksDto,
+    userId: string,
+  ): Promise<{ content: ContentResponseDto; transactionId: string }> {
+    const transactionId = uuidv4();
+    let session: ClientSession | null = null;
+    let useTransaction = false;
+
+    // 1) Check for replica set support
     try {
-      const created = new this.contentModel({
-        ...dto,
-        createdBy,
-        updatedBy: createdBy,
+      const admin = this.connection.db?.admin();
+      if (!admin) {
+        throw new Error('Database connection not available');
+      }
+      const isMaster = await admin.command({ isMaster: 1 });
+      if (isMaster.setName) {
+        // Replica set detected → enable transactions
+        session = await this.connection.startSession();
+        session.startTransaction(); // will only attach txnNumber later on operations
+        useTransaction = true;
+        this.logger.log(
+          `[${transactionId}] Replica set detected – using transactions.`,
+        );
+      } else {
+        this.logger.log(
+          `[${transactionId}] No replica set detected – proceeding without transactions.`,
+        );
+      }
+    } catch (checkErr) {
+      // If we can’t even run isMaster, assume standalone and skip transactions
+      this.logger.log(
+        `[${transactionId}] Could not check replica set status (proceeding without transactions): ${checkErr.message}`,
+      );
+    }
+
+    try {
+      // 2) Process all blocks (text, image, video)
+      const processedBlocks: Block[] = await this.processContentBlocks(
+        dto.blocks,
+        userId,
+      );
+
+      // 3) Build the content payload
+      const contentData = {
+        title: dto.title,
+        description: dto.description,
+        blocks: processedBlocks,
+        metadata: {
+          createdVia: 'content-endpoint',
+          blockCount: processedBlocks.length,
+          fileReferences: processedBlocks
+            .filter((b) => b.metadata?.fileId)
+            .map((b) => b.metadata!.fileId),
+          ...dto.metadata,
+        },
+        createdBy: userId,
+        updatedBy: userId,
+      };
+
+      // 4) Save WITH or WITHOUT transaction
+      let savedContent;
+      const content = new this.contentModel(contentData);
+
+      if (useTransaction && session) {
+        // Attempt to save inside transaction
+        savedContent = await content.save({ session });
+        await session.commitTransaction();
+        this.logger.log(
+          `[${transactionId}] Content created successfully in transaction.`,
+        );
+      } else {
+        // Fallback: simple save
+        savedContent = await content.save();
+        this.logger.log(
+          `[${transactionId}] Content created successfully without transaction.`,
+        );
+      }
+
+      // 5) Broadcast via WebSocket
+      const contentDto = ContentResponseDto.fromEntity(savedContent);
+      this.gateway.broadcastContentUpdate({
+        action: 'create',
+        content: contentDto,
       });
 
-      const savedContent = await created.save();
-
-      // broadcast after create
-      this.gateway.broadcastContentUpdate(savedContent);
-
-      this.logger.log(`Content created: ${savedContent._id} by ${createdBy}`);
-      return ContentResponseDto.fromEntity(savedContent);
+      return { content: contentDto, transactionId };
     } catch (error) {
+      // If we started a transaction, roll it back
+      if (session && useTransaction) {
+        try {
+          await session.abortTransaction();
+        } catch (abortErr) {
+          this.logger.error(
+            `[${transactionId}] Failed to abort transaction: ${abortErr.message}`,
+          );
+        }
+      }
+
+      // Log and rethrow known errors
       this.logger.error(
-        `Failed to create content: ${error.message}`,
+        `[${transactionId}] Failed to create content: ${error.message}`,
         error.stack,
       );
-      throw new BadRequestException(
+
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
         `Failed to create content: ${error.message}`,
       );
+    } finally {
+      // Always end the session if we started one
+      if (session) {
+        session.endSession().catch((endErr) => {
+          this.logger.error(
+            `[${transactionId}] Failed to end session: ${endErr.message}`,
+          );
+        });
+      }
     }
   }
 
+  /**
+   * Process and validate content blocks including file references
+   * @private
+   */
+  private async processContentBlocks(
+    blocks: ContentBlockDto[],
+    userId: string,
+  ): Promise<Block[]> {
+    const processedBlocks: Block[] = [];
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const processedBlock: Block = {
+        type: block.type,
+        metadata: { ...(block.metadata || {}) },
+      };
+
+      switch (block.type) {
+        case 'text':
+          if (!block.text) {
+            throw new BadRequestException(
+              `Block #${i + 1}: Text blocks require 'text' property`,
+            );
+          }
+          processedBlock.text = block.text;
+          processedBlock.metadata!.textType =
+            block.metadata?.textType || 'paragraph';
+          break;
+
+        case 'image':
+          if (block.url) {
+            processedBlock.url = block.url;
+          } else if (block.fileId) {
+            try {
+              const file = await this.filesService.findOne(block.fileId);
+              processedBlock.url = file.url;
+              Object.assign(processedBlock.metadata || (processedBlock.metadata = {}), {
+                fileId: file.id,
+                fileName: file.filename,
+                fileType: file.contentType,
+                fileSize: file.size,
+                uploadedBy: file.createdBy,
+              });
+            } catch {
+              throw new BadRequestException(
+                `Block #${i + 1}: File with ID ${block.fileId} not found`,
+              );
+            }
+          } else {
+            throw new BadRequestException(
+              `Block #${i + 1}: Image blocks require 'url' or 'fileId'`,
+            );
+          }
+          break;
+
+        case 'video':
+          if (block.url) {
+            processedBlock.url = block.url;
+          } else if (block.fileId) {
+            try {
+              const file = await this.filesService.findOne(block.fileId);
+              processedBlock.url = file.url;
+              Object.assign(processedBlock.metadata || (processedBlock.metadata = {}), {
+                fileId: file.id,
+                fileName: file.filename,
+                fileType: file.contentType,
+                fileSize: file.size,
+                uploadedBy: file.createdBy,
+                duration: block.metadata?.duration,
+                thumbnail: block.metadata?.thumbnail,
+              });
+            } catch {
+              throw new BadRequestException(
+                `Block #${i + 1}: File with ID ${block.fileId} not found`,
+              );
+            }
+          } else {
+            throw new BadRequestException(
+              `Block #${i + 1}: Video blocks require 'url' or 'fileId'`,
+            );
+          }
+          break;
+
+        default:
+          throw new BadRequestException(
+            `Block #${i + 1}: Unsupported block type: ${block.type}`,
+          );
+      }
+
+      // Track ordering
+      processedBlock.metadata!.position = i;
+      processedBlocks.push(processedBlock);
+    }
+
+    return processedBlocks;
+  }
+
+  // The rest of the service methods remain unchanged...
   /**
    * Find all active content with pagination
    * Excludes soft-deleted content
@@ -203,7 +408,10 @@ export class ContentService {
       const responseDto = ContentResponseDto.fromEntity(content);
 
       // broadcast after update
-      this.gateway.broadcastContentUpdate(responseDto);
+      this.gateway.broadcastContentUpdate({
+        action: 'update',
+        content: responseDto,
+      });
 
       this.logger.log(`Content ${id} updated by ${updatedBy}`);
 
@@ -250,7 +458,11 @@ export class ContentService {
       const responseDto = ContentResponseDto.fromEntity(content);
 
       // broadcast deletion
-      this.gateway.broadcastContentUpdate({ id, deleted: true });
+      this.gateway.broadcastContentUpdate({
+        action: 'delete',
+        id,
+        deleted: true,
+      });
 
       this.logger.log(`Content ${id} soft deleted by ${deletedBy}`);
 
@@ -301,7 +513,10 @@ export class ContentService {
       const responseDto = ContentResponseDto.fromEntity(content);
 
       // broadcast restoration
-      this.gateway.broadcastContentUpdate(responseDto);
+      this.gateway.broadcastContentUpdate({
+        action: 'restore',
+        content: responseDto,
+      });
 
       this.logger.log(`Content ${id} restored by ${restoredBy}`);
 
@@ -348,6 +563,7 @@ export class ContentService {
 
       // broadcast permanent deletion
       this.gateway.broadcastContentUpdate({
+        action: 'delete',
         id,
         deleted: true,
         permanent: true,

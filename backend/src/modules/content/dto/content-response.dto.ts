@@ -6,7 +6,9 @@
 export class ContentResponseDto {
   id: string;
   title: string;
+  description?: string;
   blocks: any[];
+  metadata?: Record<string, any>;
   createdAt?: Date;
   updatedAt?: Date;
   createdBy?: string;
@@ -19,7 +21,9 @@ export class ContentResponseDto {
     return {
       id: content._id?.toString(),
       title: content.title,
+      description: content.description,
       blocks: content.blocks || [],
+      metadata: content.metadata || {},
       createdAt: content.createdAt,
       updatedAt: content.updatedAt,
       createdBy: content.createdBy,

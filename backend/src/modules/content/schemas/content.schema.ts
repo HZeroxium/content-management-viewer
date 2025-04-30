@@ -7,11 +7,11 @@ export type ContentDocument = Content & Document;
 
 /** Sub-document for a single block */
 export class Block {
-  @Prop({ required: true, enum: ['text', 'image', 'video'] })
-  type: 'text' | 'image' | 'video';
+  @Prop({ required: true, enum: ['text', 'image', 'video', 'audio'] })
+  type: 'text' | 'image' | 'video' | 'audio';
 
   @Prop() text?: string; // for text blocks
-  @Prop() url?: string; // for image/video blocks
+  @Prop() url?: string; // for image/video/audio blocks
   @Prop({ type: MongooseSchema.Types.Mixed }) metadata?: Record<string, any>; // e.g. alt text or dimensions
 }
 
@@ -20,8 +20,14 @@ export class Content {
   @Prop({ required: true })
   title: string;
 
+  @Prop()
+  description?: string;
+
   @Prop({ type: [Block], _id: false })
   blocks: Block[];
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  metadata?: Record<string, any>;
 
   @Prop() createdBy: string;
   @Prop() updatedBy: string;

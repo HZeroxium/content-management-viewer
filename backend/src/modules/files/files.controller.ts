@@ -12,7 +12,6 @@ import {
   Body,
   ParseFilePipe,
   MaxFileSizeValidator,
-  FileTypeValidator,
   BadRequestException,
   Delete,
   Param,
@@ -67,10 +66,7 @@ export class FilesController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
-          new FileTypeValidator({
-            fileType:
-              /(jpg|jpeg|png|gif|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|mp3|wav|mp4|webm|mov)/,
-          }),
+          // FileTypeValidator removed - relying on service validation
         ],
         fileIsRequired: true,
         exceptionFactory: (error) => new BadRequestException(error),
