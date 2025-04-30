@@ -6,14 +6,16 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FilesService } from './files.service';
 import { FilesController } from './files.controller';
 import { File, FileSchema } from './schemas/file.schema';
+import { S3StorageService } from '@common/services/storage.service';
+import { FileValidatorService } from './services/file-validator.service';
 
 @Module({
   imports: [
-    ConfigModule, // to read SPACES_* env vars via ConfigService
+    ConfigModule,
     MongooseModule.forFeature([{ name: File.name, schema: FileSchema }]),
   ],
-  providers: [FilesService],
+  providers: [FilesService, S3StorageService, FileValidatorService],
   controllers: [FilesController],
-  exports: [FilesService], // export to allow other modules to use it
+  exports: [FilesService],
 })
 export class FilesModule {}

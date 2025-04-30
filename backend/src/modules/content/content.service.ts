@@ -1,314 +1,122 @@
 // /src/modules/content/content.service.ts
 
 import {
+  BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
-  BadRequestException,
-  InternalServerErrorException,
-  ConflictException,
 } from '@nestjs/common';
-import { InjectModel, InjectConnection } from '@nestjs/mongoose';
-import { Model, Connection, ClientSession } from 'mongoose';
-import { Content, ContentDocument, Block } from './schemas/content.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Content, ContentDocument } from './schemas/content.schema';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { ContentGateway } from '@websocket/content.gateway';
 import { ContentResponseDto } from './dto/content-response.dto';
+import { CreateContentWithBlocksDto } from './dto/create-content-with-blocks.dto';
+import { BaseCrudService } from '@common/services/base-crud.service';
+import { TransactionService } from '@common/services/transaction.service';
+import { ContentProcessorService } from './services/content-processor.service';
 import {
-  CreateContentWithBlocksDto,
-  ContentBlockDto,
-} from './dto/create-content-with-blocks.dto';
-import {
-  PaginationQueryDto,
   PaginatedResponseDto,
-} from '@common/dto/pagination.dto';
-import { FilesService } from '@modules/files/files.service';
-import { v4 as uuidv4 } from 'uuid';
+  PaginationQueryDto,
+} from '@/common/dto/pagination.dto';
 
 @Injectable()
-export class ContentService {
-  private readonly logger = new Logger(ContentService.name);
+export class ContentService extends BaseCrudService<
+  ContentDocument,
+  CreateContentWithBlocksDto,
+  UpdateContentDto,
+  ContentResponseDto
+> {
+  protected readonly logger = new Logger(ContentService.name);
 
   constructor(
-    @InjectModel(Content.name) private contentModel: Model<ContentDocument>,
-    @InjectConnection() private connection: Connection,
+    @InjectModel(Content.name) protected readonly model: Model<ContentDocument>,
     private readonly gateway: ContentGateway,
-    private readonly filesService: FilesService,
-  ) {}
+    private readonly transactionService: TransactionService,
+    private readonly contentProcessor: ContentProcessorService,
+  ) {
+    super();
+  }
+
+  protected toResponseDto(entity: any): ContentResponseDto {
+    return ContentResponseDto.fromEntity(entity);
+  }
 
   /**
-   * Create content with multiple block types.
-   * If a replica set is detected, wrap in a transaction; otherwise just save.
+   * Create content with multiple block types in a transaction if available
    */
   async createContentWithBlocks(
     dto: CreateContentWithBlocksDto,
     userId: string,
   ): Promise<{ content: ContentResponseDto; transactionId: string }> {
-    const transactionId = uuidv4();
-    let session: ClientSession | null = null;
-    let useTransaction = false;
-
-    // 1) Check for replica set support
-    try {
-      const admin = this.connection.db?.admin();
-      if (!admin) {
-        throw new Error('Database connection not available');
-      }
-      const isMaster = await admin.command({ isMaster: 1 });
-      if (isMaster.setName) {
-        // Replica set detected → enable transactions
-        session = await this.connection.startSession();
-        session.startTransaction(); // will only attach txnNumber later on operations
-        useTransaction = true;
-        this.logger.log(
-          `[${transactionId}] Replica set detected – using transactions.`,
+    return this.transactionService.withTransaction(async (context) => {
+      try {
+        // Process all blocks (text, image, video)
+        const processedBlocks = await this.contentProcessor.processBlocks(
+          dto.blocks,
+          userId,
         );
-      } else {
-        this.logger.log(
-          `[${transactionId}] No replica set detected – proceeding without transactions.`,
-        );
-      }
-    } catch (checkErr) {
-      // If we can’t even run isMaster, assume standalone and skip transactions
-      this.logger.log(
-        `[${transactionId}] Could not check replica set status (proceeding without transactions): ${checkErr.message}`,
-      );
-    }
 
-    try {
-      // 2) Process all blocks (text, image, video)
-      const processedBlocks: Block[] = await this.processContentBlocks(
-        dto.blocks,
-        userId,
-      );
+        // Build the content payload
+        const contentData = {
+          title: dto.title,
+          description: dto.description,
+          blocks: processedBlocks,
+          metadata: {
+            createdVia: 'content-endpoint',
+            blockCount: processedBlocks.length,
+            fileReferences: processedBlocks
+              .filter((b) => b.metadata?.fileId)
+              .map((b) => b.metadata!.fileId),
+            ...dto.metadata,
+          },
+          createdBy: userId,
+          updatedBy: userId,
+        };
 
-      // 3) Build the content payload
-      const contentData = {
-        title: dto.title,
-        description: dto.description,
-        blocks: processedBlocks,
-        metadata: {
-          createdVia: 'content-endpoint',
-          blockCount: processedBlocks.length,
-          fileReferences: processedBlocks
-            .filter((b) => b.metadata?.fileId)
-            .map((b) => b.metadata!.fileId),
-          ...dto.metadata,
-        },
-        createdBy: userId,
-        updatedBy: userId,
-      };
+        // Save WITH or WITHOUT transaction
+        let savedContent;
+        const content = new this.model(contentData);
 
-      // 4) Save WITH or WITHOUT transaction
-      let savedContent;
-      const content = new this.contentModel(contentData);
-
-      if (useTransaction && session) {
-        // Attempt to save inside transaction
-        savedContent = await content.save({ session });
-        await session.commitTransaction();
-        this.logger.log(
-          `[${transactionId}] Content created successfully in transaction.`,
-        );
-      } else {
-        // Fallback: simple save
-        savedContent = await content.save();
-        this.logger.log(
-          `[${transactionId}] Content created successfully without transaction.`,
-        );
-      }
-
-      // 5) Broadcast via WebSocket
-      const contentDto = ContentResponseDto.fromEntity(savedContent);
-      this.gateway.broadcastContentUpdate({
-        action: 'create',
-        content: contentDto,
-      });
-
-      return { content: contentDto, transactionId };
-    } catch (error) {
-      // If we started a transaction, roll it back
-      if (session && useTransaction) {
-        try {
-          await session.abortTransaction();
-        } catch (abortErr) {
-          this.logger.error(
-            `[${transactionId}] Failed to abort transaction: ${abortErr.message}`,
+        if (context.useTransaction && context.session) {
+          savedContent = await content.save({ session: context.session });
+          this.logger.log(
+            `[${context.transactionId}] Content created successfully in transaction.`,
+          );
+        } else {
+          savedContent = await content.save();
+          this.logger.log(
+            `[${context.transactionId}] Content created successfully without transaction.`,
           );
         }
-      }
 
-      // Log and rethrow known errors
-      this.logger.error(
-        `[${transactionId}] Failed to create content: ${error.message}`,
-        error.stack,
-      );
+        // Broadcast via WebSocket
+        const contentDto = this.toResponseDto(savedContent);
+        this.broadcastContentUpdate('create', contentDto);
 
-      if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      ) {
+        return {
+          content: contentDto,
+          transactionId: context.transactionId,
+        };
+      } catch (error) {
+        this.logger.error(
+          `[${context.transactionId}] Failed to create content: ${error.message}`,
+          error.stack,
+        );
         throw error;
       }
-      throw new InternalServerErrorException(
-        `Failed to create content: ${error.message}`,
-      );
-    } finally {
-      // Always end the session if we started one
-      if (session) {
-        session.endSession().catch((endErr) => {
-          this.logger.error(
-            `[${transactionId}] Failed to end session: ${endErr.message}`,
-          );
-        });
-      }
-    }
+    });
   }
 
   /**
-   * Process and validate content blocks including file references
-   * @private
-   */
-  private async processContentBlocks(
-    blocks: ContentBlockDto[],
-    userId: string,
-  ): Promise<Block[]> {
-    const processedBlocks: Block[] = [];
-
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      const processedBlock: Block = {
-        type: block.type,
-        metadata: { ...(block.metadata || {}) },
-      };
-
-      switch (block.type) {
-        case 'text':
-          if (!block.text) {
-            throw new BadRequestException(
-              `Block #${i + 1}: Text blocks require 'text' property`,
-            );
-          }
-          processedBlock.text = block.text;
-          processedBlock.metadata!.textType =
-            block.metadata?.textType || 'paragraph';
-          break;
-
-        case 'image':
-          if (block.url) {
-            processedBlock.url = block.url;
-          } else if (block.fileId) {
-            try {
-              const file = await this.filesService.findOne(block.fileId);
-              processedBlock.url = file.url;
-              Object.assign(processedBlock.metadata || (processedBlock.metadata = {}), {
-                fileId: file.id,
-                fileName: file.filename,
-                fileType: file.contentType,
-                fileSize: file.size,
-                uploadedBy: file.createdBy,
-              });
-            } catch {
-              throw new BadRequestException(
-                `Block #${i + 1}: File with ID ${block.fileId} not found`,
-              );
-            }
-          } else {
-            throw new BadRequestException(
-              `Block #${i + 1}: Image blocks require 'url' or 'fileId'`,
-            );
-          }
-          break;
-
-        case 'video':
-          if (block.url) {
-            processedBlock.url = block.url;
-          } else if (block.fileId) {
-            try {
-              const file = await this.filesService.findOne(block.fileId);
-              processedBlock.url = file.url;
-              Object.assign(processedBlock.metadata || (processedBlock.metadata = {}), {
-                fileId: file.id,
-                fileName: file.filename,
-                fileType: file.contentType,
-                fileSize: file.size,
-                uploadedBy: file.createdBy,
-                duration: block.metadata?.duration,
-                thumbnail: block.metadata?.thumbnail,
-              });
-            } catch {
-              throw new BadRequestException(
-                `Block #${i + 1}: File with ID ${block.fileId} not found`,
-              );
-            }
-          } else {
-            throw new BadRequestException(
-              `Block #${i + 1}: Video blocks require 'url' or 'fileId'`,
-            );
-          }
-          break;
-
-        default:
-          throw new BadRequestException(
-            `Block #${i + 1}: Unsupported block type: ${block.type}`,
-          );
-      }
-
-      // Track ordering
-      processedBlock.metadata!.position = i;
-      processedBlocks.push(processedBlock);
-    }
-
-    return processedBlocks;
-  }
-
-  // The rest of the service methods remain unchanged...
-  /**
-   * Find all active content with pagination
-   * Excludes soft-deleted content
+   * Override the findAll method to customize filters
    */
   async findAll(
     query: PaginationQueryDto,
   ): Promise<PaginatedResponseDto<ContentResponseDto>> {
-    try {
-      const { skip, limit = 10, sort, order } = query;
-
-      // Build filter to exclude soft-deleted content
-      const filter = { deletedAt: null };
-
-      // Build sort options
-      const sortOptions: Record<string, 1 | -1> = {};
-      if (sort) {
-        sortOptions[sort] = order === 'desc' ? -1 : 1;
-      } else {
-        sortOptions['createdAt'] = -1; // Default sort
-      }
-
-      // Execute query with pagination
-      const [contents, total] = await Promise.all([
-        this.contentModel
-          .find(filter)
-          .sort(sortOptions)
-          .skip(skip)
-          .limit(limit)
-          .lean()
-          .exec(),
-        this.contentModel.countDocuments(filter).exec(),
-      ]);
-
-      // Map results to DTOs
-      const contentDtos = contents.map((content) =>
-        ContentResponseDto.fromEntity(content),
-      );
-
-      return PaginatedResponseDto.create(contentDtos, total, query);
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch content: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException('Failed to fetch content');
-    }
+    return super.findAll(query);
   }
 
   /**
@@ -332,20 +140,19 @@ export class ContentService {
       }
 
       const [contents, total] = await Promise.all([
-        this.contentModel
+        this.model
           .find(filter)
           .sort(sortOptions)
           .skip(skip)
           .limit(limit)
           .lean()
           .exec(),
-        this.contentModel.countDocuments(filter).exec(),
+        this.model.countDocuments(filter).exec(),
       ]);
 
       const contentDtos = contents.map((content) =>
-        ContentResponseDto.fromEntity(content),
+        this.toResponseDto(content),
       );
-
       return PaginatedResponseDto.create(contentDtos, total, query);
     } catch (error) {
       this.logger.error(
@@ -356,7 +163,9 @@ export class ContentService {
     }
   }
 
-  /** Find one by ID, throw if not found */
+  /**
+   * Override find one to handle includes deleted
+   */
   async findOne(
     id: string,
     includeDeleted = false,
@@ -366,13 +175,13 @@ export class ContentService {
         ? { _id: id }
         : { _id: id, deletedAt: null };
 
-      const content = await this.contentModel.findOne(filter).lean().exec();
+      const content = await this.model.findOne(filter).lean().exec();
 
       if (!content) {
         throw new NotFoundException(`Content ${id} not found`);
       }
 
-      return ContentResponseDto.fromEntity(content);
+      return this.toResponseDto(content);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -385,37 +194,18 @@ export class ContentService {
     }
   }
 
-  /** Update, record who did it */
+  /**
+   * Override update to add websocket broadcast
+   */
   async update(
     id: string,
     dto: UpdateContentDto,
     updatedBy: string,
   ): Promise<ContentResponseDto> {
     try {
-      // Check if content exists first
-      await this.findOne(id);
-
-      const update = { ...dto, updatedBy };
-      const content = await this.contentModel
-        .findOneAndUpdate({ _id: id, deletedAt: null }, update, { new: true })
-        .lean()
-        .exec();
-
-      if (!content) {
-        throw new NotFoundException(`Content ${id} not found`);
-      }
-
-      const responseDto = ContentResponseDto.fromEntity(content);
-
-      // broadcast after update
-      this.gateway.broadcastContentUpdate({
-        action: 'update',
-        content: responseDto,
-      });
-
-      this.logger.log(`Content ${id} updated by ${updatedBy}`);
-
-      return responseDto;
+      const updated = await super.update(id, dto, updatedBy);
+      this.broadcastContentUpdate('update', updated);
+      return updated;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -431,44 +221,25 @@ export class ContentService {
   }
 
   /**
-   * Soft delete content
-   * Sets deletedAt and deletedBy fields
+   * Override softDelete to add broadcasting
    */
   async remove(
     id: string,
     deletedBy: string,
-  ): Promise<{
-    content: ContentResponseDto;
-    message: string;
-  }> {
+  ): Promise<{ content: ContentResponseDto; message: string }> {
     try {
-      const content = await this.contentModel
-        .findOneAndUpdate(
-          { _id: id, deletedAt: null },
-          { deletedAt: new Date(), deletedBy },
-          { new: true },
-        )
-        .lean()
-        .exec();
+      const result = await super.softDelete(id, deletedBy);
 
-      if (!content) {
-        throw new NotFoundException(`Content ${id} not found`);
-      }
-
-      const responseDto = ContentResponseDto.fromEntity(content);
-
-      // broadcast deletion
+      // Broadcast via WebSocket
       this.gateway.broadcastContentUpdate({
         action: 'delete',
         id,
         deleted: true,
       });
 
-      this.logger.log(`Content ${id} soft deleted by ${deletedBy}`);
-
       return {
-        content: responseDto,
-        message: `Content "${content.title}" has been successfully deleted`,
+        content: result.item,
+        message: `Content "${result.item.title}" has been successfully deleted`,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -485,45 +256,21 @@ export class ContentService {
   }
 
   /**
-   * Restore soft-deleted content
+   * Override restore with broadcasting
    */
-  async restore(
-    id: string,
-    restoredBy: string,
-  ): Promise<{
-    content: ContentResponseDto;
-    message: string;
-  }> {
+  async restore(id: string, restoredBy: string): Promise<ContentResponseDto> {
     try {
-      const content = await this.contentModel
-        .findOneAndUpdate(
-          { _id: id, deletedAt: { $ne: null } },
-          { deletedAt: null, deletedBy: null, updatedBy: restoredBy },
-          { new: true },
-        )
-        .lean()
-        .exec();
+      const restored = await super.restore(id, restoredBy);
 
-      if (!content) {
-        throw new NotFoundException(
-          `Content ${id} not found or already active`,
-        );
-      }
+      // Broadcast restoration
+      this.broadcastContentUpdate('restore', restored);
 
-      const responseDto = ContentResponseDto.fromEntity(content);
+      // Log the success message but return only the DTO
+      this.logger.log(
+        `Content "${restored.title}" has been successfully restored`,
+      );
 
-      // broadcast restoration
-      this.gateway.broadcastContentUpdate({
-        action: 'restore',
-        content: responseDto,
-      });
-
-      this.logger.log(`Content ${id} restored by ${restoredBy}`);
-
-      return {
-        content: responseDto,
-        message: `Content "${content.title}" has been successfully restored`,
-      };
+      return restored;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -539,8 +286,7 @@ export class ContentService {
   }
 
   /**
-   * Permanently delete content
-   * For administrative purposes only
+   * Override hardDelete to add broadcasting
    */
   async permanentDelete(id: string): Promise<{
     id: string;
@@ -549,27 +295,18 @@ export class ContentService {
     title?: string;
   }> {
     try {
-      const content = await this.contentModel.findById(id).lean().exec();
-      if (!content) {
-        throw new NotFoundException(`Content ${id} not found`);
-      }
-
+      const content = await this.findOne(id, true);
       const contentTitle = content.title;
-      const res = await this.contentModel.findByIdAndDelete(id).exec();
 
-      if (!res) {
-        throw new BadRequestException('Database operation failed');
-      }
+      await super.hardDelete(id);
 
-      // broadcast permanent deletion
+      // Broadcast permanent deletion
       this.gateway.broadcastContentUpdate({
         action: 'delete',
         id,
         deleted: true,
         permanent: true,
       });
-
-      this.logger.log(`Content ${id} permanently deleted`);
 
       return {
         id,
@@ -578,10 +315,7 @@ export class ContentService {
         title: contentTitle,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof NotFoundException) {
         throw error;
       }
       this.logger.error(
@@ -592,5 +326,18 @@ export class ContentService {
         `Failed to permanently delete content: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Helper to broadcast content updates with consistent structure
+   */
+  private broadcastContentUpdate(
+    action: string,
+    content: ContentResponseDto,
+  ): void {
+    this.gateway.broadcastContentUpdate({
+      action,
+      content,
+    });
   }
 }
