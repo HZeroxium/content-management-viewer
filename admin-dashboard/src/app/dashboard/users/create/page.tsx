@@ -1,9 +1,10 @@
-// src/app/dashboard/users/[id]/page.tsx
+// /src/app/dashboard/users/create/page.tsx
+
 "use client";
 
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
-import { useUser, useSaveUser } from "@/lib/query/users.queries";
+import { useSaveUser } from "@/lib/query/users.queries";
 import { User } from "@/types/user";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -13,71 +14,41 @@ import {
   Button,
   MenuItem,
   Typography,
-  CircularProgress,
-  Paper,
   Grid,
-  Breadcrumbs,
+  Paper,
   Stack,
+  Breadcrumbs,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 
 const roles = ["admin", "editor", "client"] as const;
 
-export default function UserDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-  const { data: user, isLoading } = useUser(id);
+export default function CreateUserPage() {
   const saveUser = useSaveUser();
   const router = useRouter();
 
-  const { control, handleSubmit, reset } = useForm<Partial<User>>({
-    defaultValues: { email: "", name: "", role: "client" },
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<Partial<User> & { password: string }>({
+    defaultValues: {
+      email: "",
+      name: "",
+      role: "client",
+      password: "",
+    },
   });
 
-  React.useEffect(() => {
-    if (user) reset(user);
-  }, [user, reset]);
-
-  const onSubmit = async (data: Partial<User>) => {
+  const onSubmit = async (data: Partial<User> & { password: string }) => {
     try {
-      const cleanedData = Object.fromEntries(
-        Object.entries(data).filter(([, v]) => v !== undefined && v !== "")
-      );
-
-      const { id, ...updateData } = cleanedData;
-
-      await saveUser.mutateAsync({ id, ...updateData });
+      await saveUser.mutateAsync(data);
       router.push("/dashboard/users");
     } catch (error) {
-      console.error("Error updating user:", error);
+      console.error("Error creating user:", error);
     }
   };
-
-  if (isLoading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (!user) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h6" color="error">
-          User not found
-        </Typography>
-        <Button
-          component={Link}
-          href="/dashboard/users"
-          variant="outlined"
-          sx={{ mt: 2 }}
-        >
-          Back to Users
-        </Button>
-      </Box>
-    );
-  }
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -99,7 +70,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
               >
                 Users
               </Link>
-              <Typography color="text.primary">Edit User</Typography>
+              <Typography color="text.primary">Create User</Typography>
             </Breadcrumbs>
 
             <Box
@@ -111,7 +82,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
               }}
             >
               <Typography variant="h5" component="h1">
-                Edit User: {user?.email}
+                Create New User
               </Typography>
               <Link href="/dashboard/users" passHref>
                 <Button startIcon={<ArrowBackIcon />} variant="outlined">
@@ -131,15 +102,23 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                   <Controller
                     name="email"
                     control={control}
-                    rules={{ required: "Email is required" }}
+                    rules={{
+                      required: "Email is required",
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: "Invalid email address",
+                      },
+                    }}
                     render={({ field, fieldState }) => (
                       <TextField
-                        label="Email"
+                        label="Email Address"
                         fullWidth
+                        required
                         margin="normal"
-                        {...field}
                         error={!!fieldState.error}
                         helperText={fieldState.error?.message}
+                        {...field}
+                        autoFocus
                       />
                     )}
                   />
@@ -149,11 +128,41 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                   <Controller
                     name="name"
                     control={control}
-                    render={({ field }) => (
+                    rules={{ required: "Name is required" }}
+                    render={({ field, fieldState }) => (
                       <TextField
-                        label="Name"
+                        label="Full Name"
                         fullWidth
+                        required
                         margin="normal"
+                        error={!!fieldState.error}
+                        helperText={fieldState.error?.message}
+                        {...field}
+                      />
+                    )}
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller
+                    name="password"
+                    control={control}
+                    rules={{
+                      required: "Password is required",
+                      minLength: {
+                        value: 6,
+                        message: "Password must be at least 6 characters",
+                      },
+                    }}
+                    render={({ field, fieldState }) => (
+                      <TextField
+                        label="Password"
+                        type="password"
+                        fullWidth
+                        required
+                        margin="normal"
+                        error={!!fieldState.error}
+                        helperText={fieldState.error?.message}
                         {...field}
                       />
                     )}
@@ -166,15 +175,16 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                     control={control}
                     render={({ field }) => (
                       <TextField
-                        label="Role"
+                        label="User Role"
                         select
                         fullWidth
+                        required
                         margin="normal"
                         {...field}
                       >
-                        {roles.map((r) => (
-                          <MenuItem key={r} value={r}>
-                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                        {roles.map((role) => (
+                          <MenuItem key={role} value={role}>
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
                           </MenuItem>
                         ))}
                       </TextField>
@@ -188,10 +198,13 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                       type="submit"
                       variant="contained"
                       color="primary"
-                      disabled={saveUser.isPending}
+                      size="large"
+                      disabled={isSubmitting || saveUser.isPending}
                       startIcon={<SaveIcon />}
                     >
-                      {saveUser.isPending ? "Saving..." : "Save Changes"}
+                      {isSubmitting || saveUser.isPending
+                        ? "Creating..."
+                        : "Create User"}
                     </Button>
                     <Button
                       variant="outlined"

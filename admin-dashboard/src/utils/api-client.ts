@@ -33,3 +33,21 @@ export const apiClient = {
     return response.data;
   },
 };
+
+// Add interceptors to log detailed error information
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Log more details about the error
+      console.error("API Error Response:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        endpoint: error.config.url,
+        method: error.config.method,
+      });
+    }
+    return Promise.reject(error);
+  }
+);

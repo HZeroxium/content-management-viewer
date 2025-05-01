@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import io, { Socket } from "socket.io-client";
 import { useDispatch } from "react-redux";
-import { setSocketStatus } from "@/lib/store/slices/ui.slice"; // Changed from setSocketConnected to setSocketStatus
+import { setSocketStatus } from "@/lib/store/slices/ui.slice";
 import { useQueryClient } from "@tanstack/react-query";
 import { SocketEvent } from "@/lib/socket-events";
 import { Content } from "@/types/content";
@@ -16,14 +16,31 @@ export function useSocket() {
   useEffect(() => {
     if (socket) return; // singleton
 
-    // 1) Connect with JWT
+    // 1) Connect with JWT - UPDATE WITH CORRECT PATH!
     socket = io(process.env.NEXT_PUBLIC_WS_URL!, {
-      auth: { token: `Bearer ${localStorage.getItem("accessToken")}` },
+      path: "/ws/content", // Add this line to match backend configuration
+      auth: { token: `Bearer ${localStorage.getItem("auth_token")}` }, // Also fixed token key to match your axios interceptor
+      reconnectionAttempts: 5, // Add reconnection configuration
+      reconnectionDelay: 1000, // Start with 1s delay
+      reconnectionDelayMax: 5000, // Max 5s delay between reconnection attempts
+      timeout: 20000, // Connection timeout
     });
 
     // 2) Connection state
-    socket.on("connect", () => dispatch(setSocketStatus(true)));
-    socket.on("disconnect", () => dispatch(setSocketStatus(false)));
+    socket.on("connect", () => {
+      console.log("Socket connected successfully");
+      dispatch(setSocketStatus(true));
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      dispatch(setSocketStatus(false));
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("Socket disconnected:", reason);
+      dispatch(setSocketStatus(false));
+    });
 
     // 3) Handle content updates
     socket.on(

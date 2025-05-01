@@ -3,65 +3,65 @@
 
 import React, { useState } from "react";
 import { useContentList } from "@/lib/query/content.queries";
-import { Content } from "@/types/content";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Typography, Card, Grid } from "@mui/material";
 import Link from "next/link";
-import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import ContentTable from "./ContentTable";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
 export default function ContentListPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const { data, isLoading } = useContentList({ page, limit });
 
-  const columns: GridColDef<Content>[] = [
-    { field: "title", headerName: "Title", flex: 1 },
-    { field: "createdAt", headerName: "Created At", width: 180 },
-    { field: "updatedAt", headerName: "Updated At", width: 180 },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 140,
-      sortable: false,
-      renderCell: (params) => (
-        <Link href={`/dashboard/content/${params.row.id}`} passHref>
-          <Button variant="outlined" size="small">
-            Edit
-          </Button>
-        </Link>
-      ),
-    },
-  ];
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setLimit(newSize);
+    setPage(1); // Reset to first page when changing page size
+  };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Typography variant="h5">Content</Typography>
-        <Link href="/dashboard/content/create" passHref>
-          <Button variant="contained">New Content</Button>
-        </Link>
-      </Box>
+    <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12 }}>
+          <Card
+            sx={{
+              p: 2,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography variant="h5" component="h1" sx={{ fontWeight: "bold" }}>
+              Content Management
+            </Typography>
+            <Link href="/dashboard/content/create" passHref>
+              <Button
+                variant="contained"
+                startIcon={<AddCircleOutlineIcon />}
+                sx={{ fontWeight: "medium" }}
+              >
+                New Content
+              </Button>
+            </Link>
+          </Card>
+        </Grid>
 
-      <Box sx={{ height: 600, width: "100%" }}>
-        <DataGrid
-          rows={data?.data || []}
-          columns={columns}
-          pagination
-          paginationModel={{
-            page: page - 1,
-            pageSize: limit,
-          }}
-          rowCount={data?.meta?.total || 0}
-          paginationMode="server"
-          onPaginationModelChange={(model) => {
-            setPage(model.page + 1);
-            if (model.pageSize !== limit) {
-              setLimit(model.pageSize);
-            }
-          }}
-          loading={isLoading}
-          pageSizeOptions={[5, 10, 20]}
-        />
-      </Box>
+        <Grid size={{ xs: 12 }}>
+          <ContentTable
+            rows={data?.data || []}
+            rowCount={data?.meta?.total || 0}
+            page={page}
+            pageSize={limit}
+            loading={isLoading}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
+        </Grid>
+      </Grid>
     </Box>
   );
 }

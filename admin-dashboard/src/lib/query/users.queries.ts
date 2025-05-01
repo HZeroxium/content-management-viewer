@@ -2,12 +2,7 @@
 import { User } from "@/types/user";
 import { PaginatedResponseDto } from "@/types/content";
 import { apiClient } from "../../utils/api-client"; // Fixed path
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  UseMutationOptions,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Define the PaginatedResponse type here to avoid circular dependencies
 export type PaginatedResponse<T = User> = PaginatedResponseDto<T>;
@@ -33,25 +28,34 @@ export const useUsersList = (params: { page: number; limit: number }) => {
 };
 
 // Create or update user
-export const useSaveUser = (
-  options?: UseMutationOptions<User, Error, Partial<User> & { id?: string }>
-) => {
+export function useSaveUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (user: Partial<User> & { id?: string }) => {
+    mutationFn: async (user: Partial<User>) => {
       if (user.id) {
-        return apiClient.patch<User>(`/users/${user.id}`, user);
+        // For updates, remove any empty strings and undefined fields
+        const { id, ...updateData } = user;
+        const cleanedData = Object.fromEntries(
+          Object.entries(updateData).filter(
+            ([, v]) => v !== undefined && v !== ""
+          )
+        );
+        return apiClient.patch<User>(`/users/${id}`, cleanedData);
       } else {
+        // For new users, ensure required fields are present
+        if (!user.password) {
+          throw new Error("Password is required for new users");
+        }
         return apiClient.post<User>("/users", user);
       }
     },
     onSuccess: () => {
+      // Invalidate and refetch users list and any individual user
       queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    ...options,
   });
-};
+}
 
 // Delete user
 export const useDeleteUser = () => {

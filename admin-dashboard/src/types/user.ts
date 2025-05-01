@@ -4,10 +4,11 @@ import { PaginatedResponseDto } from "./content";
 export type Role = "admin" | "editor" | "client";
 
 export interface User {
-  id: string;
+  id?: string;
   email: string;
-  role: string;
-  name?: string; // Added as optional since it appears to be used in the codebase
+  password?: string; // Make password optional for updates
+  name: string;
+  role: "admin" | "editor" | "client";
   createdAt?: string;
   updatedAt?: string;
 }
