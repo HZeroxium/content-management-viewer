@@ -12,7 +12,7 @@ export const socketConfig: Partial<ManagerOptions & SocketOptions> = {
 
 export const getSocketAuthToken = (): { token: string } => {
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
 
   return {
     token: token ? `Bearer ${token}` : "",

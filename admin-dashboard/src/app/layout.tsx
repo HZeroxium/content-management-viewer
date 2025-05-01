@@ -2,11 +2,9 @@
 "use client";
 
 import { Inter } from "next/font/google";
-import { ThemeProvider } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
-import theme from "@/theme";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/contexts/auth-context";
+import { ThemeContextProvider } from "@/contexts/theme-context";
+import { ReduxProvider } from "@/contexts/redux-provider";
 import { useState } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -23,12 +21,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <ThemeProvider theme={theme}>
-              <CssBaseline />
-              {children}
-            </ThemeProvider>
-          </AuthProvider>
+          <ReduxProvider>
+            <ThemeContextProvider>{children}</ThemeContextProvider>
+          </ReduxProvider>
         </QueryClientProvider>
       </body>
     </html>

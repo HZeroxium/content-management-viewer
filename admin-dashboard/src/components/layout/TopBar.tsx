@@ -14,13 +14,13 @@ import {
 import LogoutIcon from "@mui/icons-material/Logout";
 import WifiIcon from "@mui/icons-material/Wifi";
 import WifiOffIcon from "@mui/icons-material/WifiOff";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAppAuth } from "@/lib/hooks/useAppAuth";
 import { useSelector } from "react-redux";
 import { RootState } from "@/lib/store";
 import { useSocket } from "@/lib/hooks/useSocket";
 
 export default function TopBar() {
-  const { logout, user } = useAuth();
+  const { logout, user } = useAppAuth();
   const socketConnected = useSelector((s: RootState) => s.ui.socketConnected);
   useSocket(); // manage connection status in ui slice
 

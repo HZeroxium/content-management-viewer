@@ -1,15 +1,17 @@
-// src/lib/store/index.ts
+// /src/lib/store/index.ts
+
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "./slices/auth.slice";
-import uiReducer from "./slices/ui.slice";
+import rootReducer from "./rootReducer";
 
 export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    ui: uiReducer,
-  },
+  reducer: rootReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false,
+    }),
+  devTools: process.env.NODE_ENV !== "production",
 });
 
-// Infer types for `useSelector` / `useDispatch`
+// Infer the `RootState` and `AppDispatch` types from the store itself
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

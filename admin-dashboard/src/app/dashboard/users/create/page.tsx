@@ -2,10 +2,10 @@
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { useSaveUser } from "@/lib/query/users.queries";
-import { User } from "@/types/user";
+import { useCreateUser } from "@/lib/hooks/api/useUsers"; // Updated import
+import { User } from "@/lib/types/user";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,15 +18,18 @@ import {
   Paper,
   Stack,
   Breadcrumbs,
+  Alert,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
+import { ApiError } from "@/lib/types/error";
 
 const roles = ["admin", "editor", "client"] as const;
 
 export default function CreateUserPage() {
-  const saveUser = useSaveUser();
+  const createUser = useCreateUser();
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   const {
     control,
@@ -43,10 +46,43 @@ export default function CreateUserPage() {
 
   const onSubmit = async (data: Partial<User> & { password: string }) => {
     try {
-      await saveUser.mutateAsync(data);
+      setError(null);
+
+      // Validate data before submission
+      if (!data.email?.trim()) {
+        setError("Email is required");
+        return;
+      }
+
+      if (!data.password?.trim() || data.password.length < 6) {
+        setError("Password must be at least 6 characters");
+        return;
+      }
+
+      // Create the user with properly typed object
+      await createUser.mutateAsync({
+        email: data.email!, // Not undefined due to validation above
+        name: data.name || "",
+        role: data.role || "client",
+        password: data.password!, // Not undefined due to validation above
+      });
+
+      // Navigate after successful creation
       router.push("/dashboard/users");
-    } catch (error) {
-      console.error("Error creating user:", error);
+    } catch (err) {
+      console.error("Error creating user:", err);
+
+      // Handle specific errors
+      if (typeof err === "object" && err !== null) {
+        const apiError = err as ApiError;
+        if (apiError.message) {
+          setError(apiError.message);
+        } else {
+          setError("Failed to create user. Please try again.");
+        }
+      } else {
+        setError("An unknown error occurred");
+      }
     }
   };
 
@@ -90,6 +126,12 @@ export default function CreateUserPage() {
                 </Button>
               </Link>
             </Box>
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
 
             <Box
               component="form"
@@ -199,10 +241,10 @@ export default function CreateUserPage() {
                       variant="contained"
                       color="primary"
                       size="large"
-                      disabled={isSubmitting || saveUser.isPending}
+                      disabled={isSubmitting || createUser.isPending}
                       startIcon={<SaveIcon />}
                     >
-                      {isSubmitting || saveUser.isPending
+                      {isSubmitting || createUser.isPending
                         ? "Creating..."
                         : "Create User"}
                     </Button>

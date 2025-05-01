@@ -1,17 +1,19 @@
 // src/app/dashboard/users/page.tsx
+
 "use client";
 
 import React, { useState } from "react";
 import { Box, Button, Typography, Card, Grid } from "@mui/material";
-import { useUsersList } from "@/lib/query/users.queries";
+import { useUsers } from "@/lib/hooks/api/useUsers"; // Updated import path
 import UserTable from "./UserTable";
 import Link from "next/link";
 import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt";
+import RestoreFromTrashIcon from "@mui/icons-material/RestoreFromTrash";
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const { data, isLoading } = useUsersList({ page, limit: pageSize });
+  const { data, isLoading } = useUsers({ page, limit: pageSize });
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -38,15 +40,26 @@ export default function UsersPage() {
             <Typography variant="h5" component="h1" sx={{ fontWeight: "bold" }}>
               User Management
             </Typography>
-            <Link href="/dashboard/users/create" passHref>
-              <Button
-                variant="contained"
-                startIcon={<PersonAddAltIcon />}
-                sx={{ fontWeight: "medium" }}
-              >
-                Add User
-              </Button>
-            </Link>
+            <Box>
+              <Link href="/dashboard/users/trash" passHref>
+                <Button
+                  variant="outlined"
+                  startIcon={<RestoreFromTrashIcon />}
+                  sx={{ mr: 2 }}
+                >
+                  Deleted Users
+                </Button>
+              </Link>
+              <Link href="/dashboard/users/create" passHref>
+                <Button
+                  variant="contained"
+                  startIcon={<PersonAddAltIcon />}
+                  sx={{ fontWeight: "medium" }}
+                >
+                  Add User
+                </Button>
+              </Link>
+            </Box>
           </Card>
         </Grid>
 

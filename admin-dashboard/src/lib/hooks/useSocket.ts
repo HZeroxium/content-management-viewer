@@ -4,8 +4,8 @@ import io, { Socket } from "socket.io-client";
 import { useDispatch } from "react-redux";
 import { setSocketStatus } from "@/lib/store/slices/ui.slice";
 import { useQueryClient } from "@tanstack/react-query";
-import { SocketEvent } from "@/lib/socket-events";
-import { Content } from "@/types/content";
+import { SocketEvent } from "@/lib/socket/socket-events";
+import { ContentResponseDto as Content } from "@/lib/types/content";
 
 let socket: Socket | null = null;
 

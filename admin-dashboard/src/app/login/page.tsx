@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/contexts/auth-context";
+import { useAppAuth } from "@/lib/hooks/useAppAuth";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -25,7 +25,8 @@ interface LoginFormData {
 export default function LoginPage() {
   const [error, setError] = useState("");
   const [loginProcessing, setLoginProcessing] = useState(false);
-  const { login, isAuthenticated, user, isLoading } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { login, isAuthenticated, user, isLoading } = useAppAuth();
   const router = useRouter();
 
   const {
@@ -41,12 +42,20 @@ export default function LoginPage() {
 
   // Effect to handle successful authentication
   useEffect(() => {
-    if (isAuthenticated && user) {
-      console.log("User authenticated, redirecting to dashboard", user);
-      // Use replace instead of push to avoid back button issues
-      router.replace("/dashboard");
+    // Only redirect if we're not already redirecting, not loading, and authenticated with a user
+    if (isAuthenticated && user && !isRedirecting && !isLoading) {
+      console.log(
+        "User authenticated in login page, redirecting to dashboard",
+        user
+      );
+      setIsRedirecting(true);
+
+      // Use setTimeout to avoid potential redirect loops and give state time to update
+      setTimeout(() => {
+        router.replace("/dashboard");
+      }, 100);
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, isLoading, isRedirecting]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -55,20 +64,14 @@ export default function LoginPage() {
 
       console.log("Starting login process for:", data.email);
 
-      // Try to log in
-      const user = await login(data.email, data.password);
-      console.log("Login successful, user:", user);
+      await login({
+        email: data.email,
+        password: data.password,
+      });
 
-      // If login succeeds but doesn't redirect (handled by the effect above),
-      // we'll explicitly redirect here after a short delay
-      setTimeout(() => {
-        if (document.location.pathname === "/login") {
-          console.log("Manual redirect to dashboard after login");
-          router.replace("/dashboard");
-        }
-      }, 500);
+      // Login handled by the effect above - no need for additional redirect here
     } catch (err) {
-      console.error("Login error in component:", err);
+      console.error("Login error:", err);
       let errorMessage = "Invalid email or password. Please try again.";
 
       // Try to extract more specific error message
@@ -109,7 +112,7 @@ export default function LoginPage() {
     );
   }
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated, show a message while redirecting happens via the effect
   if (isAuthenticated && user) {
     return (
       <Container

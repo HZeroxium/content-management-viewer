@@ -1,56 +1,62 @@
 // src/app/dashboard/layout.tsx
 "use client";
 
-import React, { useEffect } from "react";
-import { useAuth } from "@/contexts/auth-context";
+import React, { useEffect, useState } from "react";
+import { useAppAuth } from "@/lib/hooks/useAppAuth";
 import { useRouter } from "next/navigation";
 import { CircularProgress, Box } from "@mui/material";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { setSidebarOpen } from "@/lib/store/slices/ui.slice";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, isAuthenticationFailed, user } =
+    useAppAuth();
   const router = useRouter();
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const dispatch = useAppDispatch();
+  const sidebarOpen = useAppSelector((state) => state.ui.sidebarOpen);
+  // Add state to prevent multiple redirects
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Check authentication on component mount
+  // Check authentication on component mount or when auth state changes
   useEffect(() => {
-    console.log("Dashboard layout mount, auth state:", {
+    console.log("Dashboard layout auth state:", {
       isLoading,
       isAuthenticated,
+      isAuthenticationFailed,
       user,
     });
 
-    const verifyAuth = async () => {
-      try {
-        // Don't redirect immediately while checking auth
-        if (!isLoading) {
-          if (!isAuthenticated) {
-            console.log("Not authenticated, redirecting to login");
-            router.replace("/login");
-          } else {
-            console.log("User authenticated:", user);
-          }
-        }
-      } catch (error) {
-        console.error("Auth verification error:", error);
-        router.replace("/login");
-      }
-    };
+    // Only redirect if we're not already redirecting, not loading, and not authenticated
+    if (!isLoading && !isAuthenticated && !isRedirecting) {
+      console.log("Not authenticated in dashboard, redirecting to login");
+      setIsRedirecting(true);
 
-    verifyAuth();
-  }, [isAuthenticated, isLoading, router, user]);
+      // Use a short timeout to ensure the redirect happens after state updates complete
+      setTimeout(() => {
+        router.replace("/login");
+      }, 100);
+    }
+  }, [
+    isAuthenticated,
+    isLoading,
+    isAuthenticationFailed,
+    router,
+    user,
+    isRedirecting,
+  ]);
 
   const toggleDrawer = () => {
-    setDrawerOpen(!drawerOpen);
+    dispatch(setSidebarOpen(!sidebarOpen));
   };
 
   // Show loading state while checking auth
-  if (isLoading) {
+  if (isLoading || (!isAuthenticated && !isRedirecting)) {
     return (
       <Box
         sx={{
@@ -61,32 +67,27 @@ export default function DashboardLayout({
         }}
       >
         <CircularProgress />
+        <Box ml={2}>
+          {isLoading ? "Checking authentication..." : "Redirecting to login..."}
+        </Box>
       </Box>
     );
   }
 
-  // If not authenticated, don't render dashboard content
+  // Only render the dashboard if authenticated
   if (!isAuthenticated) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-        }}
-      >
-        <CircularProgress />
-        <Box ml={2}>Checking authentication...</Box>
-      </Box>
-    );
+    // This is a fallback in case the redirect doesn't happen immediately
+    return null;
   }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <Header onMenuToggle={toggleDrawer} />
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <Sidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => dispatch(setSidebarOpen(false))}
+        />
         <Box
           component="main"
           sx={{

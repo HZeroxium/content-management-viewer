@@ -19,8 +19,6 @@ import {
   People as PeopleIcon,
   Article as ArticleIcon,
   Category as CategoryIcon,
-  Settings as SettingsIcon,
-  BarChart as AnalyticsIcon,
 } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -42,16 +40,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { text: "Users", icon: <PeopleIcon />, path: "/dashboard/users" },
     { text: "Content", icon: <ArticleIcon />, path: "/dashboard/content" },
     {
-      text: "Categories",
+      text: "Files",
       icon: <CategoryIcon />,
-      path: "/dashboard/categories",
+      path: "/dashboard/files",
     },
-    {
-      text: "Analytics",
-      icon: <AnalyticsIcon />,
-      path: "/dashboard/analytics",
-    },
-    { text: "Settings", icon: <SettingsIcon />, path: "/dashboard/settings" },
   ];
 
   const handleItemClick = (path: string) => {

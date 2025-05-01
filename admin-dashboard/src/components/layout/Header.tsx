@@ -14,14 +14,15 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import { useAuth } from "@/contexts/auth-context";
+import { useAppAuth } from "@/lib/hooks/useAppAuth";
+import { ConnectionStatus } from "./ConnectionStatus";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAppAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -32,8 +33,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     handleMenuClose();
   };
 
@@ -59,6 +60,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Box sx={{ mr: 2 }}>
+            <ConnectionStatus />
+          </Box>
+
           <IconButton size="large" color="inherit">
             <NotificationsIcon />
           </IconButton>

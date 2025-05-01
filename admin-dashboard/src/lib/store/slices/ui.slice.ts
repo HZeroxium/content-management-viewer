@@ -1,28 +1,56 @@
 // src/lib/store/slices/ui.slice.ts
+
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface UIState {
-  darkMode: boolean;
   socketConnected: boolean;
+  theme: "light" | "dark";
+  sidebarOpen: boolean;
 }
 
 const initialState: UIState = {
-  darkMode: false,
   socketConnected: false,
+  theme:
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("theme") as "light" | "dark")) ||
+    "light",
+  sidebarOpen: false,
 };
 
 const uiSlice = createSlice({
   name: "ui",
   initialState,
   reducers: {
-    toggleDarkMode(state) {
-      state.darkMode = !state.darkMode;
-    },
-    setSocketStatus(state, action: PayloadAction<boolean>) {
+    setSocketStatus: (state, action: PayloadAction<boolean>) => {
       state.socketConnected = action.payload;
+    },
+    toggleTheme: (state) => {
+      state.theme = state.theme === "light" ? "dark" : "light";
+      if (typeof window !== "undefined") {
+        localStorage.setItem("theme", state.theme);
+      }
+    },
+    setTheme: (state, action: PayloadAction<"light" | "dark">) => {
+      state.theme = action.payload;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("theme", action.payload);
+      }
+    },
+    toggleSidebar: (state) => {
+      state.sidebarOpen = !state.sidebarOpen;
+    },
+    setSidebarOpen: (state, action: PayloadAction<boolean>) => {
+      state.sidebarOpen = action.payload;
     },
   },
 });
 
-export const { toggleDarkMode, setSocketStatus } = uiSlice.actions;
+export const {
+  setSocketStatus,
+  toggleTheme,
+  setTheme,
+  toggleSidebar,
+  setSidebarOpen,
+} = uiSlice.actions;
+
 export default uiSlice.reducer;

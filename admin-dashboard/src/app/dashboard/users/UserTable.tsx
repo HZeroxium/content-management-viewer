@@ -1,8 +1,9 @@
 // src/app/dashboard/users/UserTable.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User } from "@/types/user";
+import { UserResponseDto as User } from "@/lib/types/user";
 import {
   Box,
   Card,
@@ -25,12 +26,20 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
 } from "@mui/material";
 import Link from "next/link";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SortIcon from "@mui/icons-material/Sort";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { useDeleteUser } from "@/lib/hooks/api/useUsers";
 
 interface Props {
   rows: User[];
@@ -40,6 +49,8 @@ interface Props {
   loading: boolean;
   onPageChange: (newPage: number) => void;
   onPageSizeChange: (newSize: number) => void;
+  canDelete?: boolean;
+  isTrashView?: boolean;
 }
 
 export default function UserTable({
@@ -50,6 +61,7 @@ export default function UserTable({
   loading,
   onPageChange,
   onPageSizeChange,
+  canDelete = true,
 }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -58,50 +70,56 @@ export default function UserTable({
   const [sortField, setSortField] = useState<keyof User>("email");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [localFiltering, setLocalFiltering] = useState(false);
 
-  // Update filtered rows whenever props or filters change
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const deleteUserMutation = useDeleteUser(userToDelete || "");
+
   useEffect(() => {
-    let result = [...rows];
+    const needsLocalFiltering = Boolean(searchTerm) || roleFilter !== "all";
+    setLocalFiltering(needsLocalFiltering);
 
-    // Apply search filter
-    if (searchTerm) {
-      result = result.filter(
-        (user) =>
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (user.name &&
-            user.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
+    if (needsLocalFiltering) {
+      let result = [...rows];
 
-    // Apply role filter
-    if (roleFilter !== "all") {
-      result = result.filter((user) => user.role === roleFilter);
-    }
-
-    // Apply sorting
-    result.sort((a, b) => {
-      let valueA = a[sortField] || "";
-      let valueB = b[sortField] || "";
-
-      if (typeof valueA === "string") {
-        valueA = valueA.toLowerCase();
-        valueB = (valueB as string).toLowerCase();
+      if (searchTerm) {
+        result = result.filter(
+          (user) =>
+            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.name &&
+              user.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
       }
 
-      if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
+      if (roleFilter !== "all") {
+        result = result.filter((user) => user.role === roleFilter);
+      }
 
-    setFilteredRows(result);
+      result.sort((a, b) => {
+        let valueA = a[sortField] || "";
+        let valueB = b[sortField] || "";
+
+        if (typeof valueA === "string") {
+          valueA = valueA.toLowerCase();
+          valueB = (valueB as string).toLowerCase();
+        }
+
+        if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
+        if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      setFilteredRows(result);
+    } else {
+      setFilteredRows(rows);
+    }
   }, [rows, searchTerm, roleFilter, sortField, sortDirection]);
 
-  // Calculate pagination
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedRows = filteredRows.slice(startIndex, endIndex);
+  const displayedRows = localFiltering
+    ? filteredRows.slice(0, pageSize)
+    : filteredRows;
 
-  // Handlers
   const handleSort = (field: keyof User) => {
     setSortDirection((prev) =>
       field === sortField && prev === "asc" ? "desc" : "asc"
@@ -120,7 +138,28 @@ export default function UserTable({
     onPageChange(1);
   };
 
-  // Role badge color based on role
+  const handleDeleteClick = (userId: string) => {
+    setUserToDelete(userId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (userToDelete) {
+      try {
+        await deleteUserMutation.mutateAsync();
+        setDeleteDialogOpen(false);
+        setUserToDelete(null);
+      } catch (error) {
+        console.error("Error deleting user:", error);
+      }
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+  };
+
   const getRoleBadgeColor = (
     role: string
   ):
@@ -213,7 +252,6 @@ export default function UserTable({
         </Grid>
       </Grid>
 
-      {/* Main Table */}
       <Card>
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table>
@@ -245,14 +283,16 @@ export default function UserTable({
                     Loading...
                   </TableCell>
                 </TableRow>
-              ) : paginatedRows.length === 0 ? (
+              ) : displayedRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={isMobile ? 3 : 4} align="center">
-                    No users found
+                    {localFiltering
+                      ? "No users match the filters"
+                      : "No users found on this page"}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedRows.map((user) => (
+                displayedRows.map((user) => (
                   <TableRow key={user.id} hover>
                     <TableCell>{user.email}</TableCell>
                     {!isMobile && <TableCell>{user.name || "-"}</TableCell>}
@@ -265,11 +305,23 @@ export default function UserTable({
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Link href={`/dashboard/users/${user.id}`} passHref>
-                        <IconButton size="small" color="primary">
-                          <EditIcon />
-                        </IconButton>
-                      </Link>
+                      <Box sx={{ display: "flex", justifyContent: "center" }}>
+                        <Link href={`/dashboard/users/${user.id}`} passHref>
+                          <IconButton size="small" color="primary">
+                            <EditIcon />
+                          </IconButton>
+                        </Link>
+
+                        {canDelete && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteClick(user.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -278,17 +330,37 @@ export default function UserTable({
           </Table>
         </TableContainer>
 
-        {/* Pagination */}
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
-          count={rowCount}
+          count={localFiltering ? filteredRows.length : rowCount}
           rowsPerPage={pageSize}
           page={page - 1}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
+
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
+        <DialogTitle>Delete User</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this user? This action will move the
+            user to the trash.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel}>Cancel</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            autoFocus
+            disabled={deleteUserMutation.isPending}
+          >
+            {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -1,13 +1,12 @@
 // src/app/dashboard/content/ContentTable.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Content } from "@/types/content";
+import { ContentResponseDto } from "@/lib/types/content";
 import {
   Box,
-  Button,
   Card,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -26,23 +25,41 @@ import {
   useTheme,
   useMediaQuery,
   Tooltip,
-  Chip
+  Chip,
+  Grid,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
 } from "@mui/material";
 import Link from "next/link";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SortIcon from "@mui/icons-material/Sort";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import RestoreIcon from "@mui/icons-material/Restore";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import {
+  useDeleteContent,
+  useRestoreContent,
+  usePermanentDeleteContent,
+} from "@/lib/hooks/api/useContents";
 
 interface Props {
-  rows: Content[];
+  rows: ContentResponseDto[];
   rowCount: number;
   page: number;
   pageSize: number;
   loading: boolean;
   onPageChange: (newPage: number) => void;
   onPageSizeChange: (newSize: number) => void;
+  canDelete?: boolean;
+  isTrashView?: boolean;
 }
 
 export default function ContentTable({
@@ -53,62 +70,100 @@ export default function ContentTable({
   loading,
   onPageChange,
   onPageSizeChange,
+  canDelete = true,
+  isTrashView = false,
 }: Props) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredRows, setFilteredRows] = useState<Content[]>(rows);
-  const [sortField, setSortField] = useState<keyof Content>("title");
+  const [filteredRows, setFilteredRows] = useState<ContentResponseDto[]>(rows);
+  const [sortField, setSortField] = useState<keyof ContentResponseDto>("title");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  
+  const [localFiltering, setLocalFiltering] = useState(false);
+
+  // Action dialogs state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] =
+    useState(false);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(
+    null
+  );
+
+  // Mutations
+  const deleteContentMutation = useDeleteContent(selectedContentId || "");
+  const restoreContentMutation = useRestoreContent(selectedContentId || "");
+  const permanentDeleteContentMutation = usePermanentDeleteContent(
+    selectedContentId || ""
+  );
+
   // Update filtered rows whenever props or filters change
   useEffect(() => {
+    // Check if we need local filtering
+    const needsLocalFiltering = searchTerm !== "" || statusFilter !== "all";
+    setLocalFiltering(needsLocalFiltering);
+
     let result = [...rows];
-    
+
     // Apply search filter
     if (searchTerm) {
-      result = result.filter(content => 
-        content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (content.description && content.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      result = result.filter(
+        (content) =>
+          content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (content.description &&
+            content.description
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase()))
       );
     }
-    
-    // Apply status filter (assuming content has a status field, you may need to adjust this)
+
+    // Apply status filter if content has metadata.status field
     if (statusFilter !== "all") {
-      result = result.filter(content => content.status === statusFilter);
+      result = result.filter(
+        (content) =>
+          content.metadata &&
+          typeof content.metadata.status === "string" &&
+          content.metadata.status === statusFilter
+      );
     }
-    
+
     // Apply sorting
     result.sort((a, b) => {
-      let valueA = a[sortField] || "";
-      let valueB = b[sortField] || "";
-      
+      let valueA = a[sortField];
+      let valueB = b[sortField];
+
       // Handle dates
-      if (sortField === 'createdAt' || sortField === 'updatedAt') {
-        valueA = new Date(valueA as string).getTime();
-        valueB = new Date(valueB as string).getTime();
-      } else if (typeof valueA === 'string') {
-        valueA = valueA.toLowerCase();
-        valueB = (valueB as string).toLowerCase();
+      if (sortField === "createdAt" || sortField === "updatedAt") {
+        return sortDirection === "asc"
+          ? new Date(valueA as string).getTime() -
+              new Date(valueB as string).getTime()
+          : new Date(valueB as string).getTime() -
+              new Date(valueA as string).getTime();
       }
-      
-      if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
+
+      // Handle strings
+      if (typeof valueA === "string" && typeof valueB === "string") {
+        valueA = valueA.toLowerCase();
+        valueB = valueB.toLowerCase();
+        if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
+        if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
+      }
+
       return 0;
     });
-    
+
     setFilteredRows(result);
   }, [rows, searchTerm, statusFilter, sortField, sortDirection]);
 
-  // Calculate pagination
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedRows = filteredRows.slice(startIndex, endIndex);
+  // We only do local pagination if we're also doing local filtering
+  const displayedRows = localFiltering
+    ? filteredRows.slice(0, pageSize)
+    : filteredRows;
 
   // Handlers
-  const handleSort = (field: keyof Content) => {
-    setSortDirection(prev => 
+  const handleSort = (field: keyof ContentResponseDto) => {
+    setSortDirection((prev) =>
       field === sortField && prev === "asc" ? "desc" : "asc"
     );
     setSortField(field);
@@ -118,25 +173,133 @@ export default function ContentTable({
     onPageChange(newPage + 1);
   };
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     onPageSizeChange(parseInt(event.target.value, 10));
     onPageChange(1);
   };
-  
+
+  const handleDeleteClick = (contentId: string) => {
+    setSelectedContentId(contentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleRestoreClick = (contentId: string) => {
+    setSelectedContentId(contentId);
+    setRestoreDialogOpen(true);
+  };
+
+  const handlePermanentDeleteClick = (contentId: string) => {
+    setSelectedContentId(contentId);
+    setPermanentDeleteDialogOpen(true);
+  };
+
+  // Action handlers
+  const handleDeleteConfirm = async () => {
+    if (selectedContentId) {
+      try {
+        await deleteContentMutation.mutateAsync();
+        setDeleteDialogOpen(false);
+        setSelectedContentId(null);
+      } catch (error) {
+        console.error("Error deleting content:", error);
+      }
+    }
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (selectedContentId) {
+      try {
+        await restoreContentMutation.mutateAsync();
+        setRestoreDialogOpen(false);
+        setSelectedContentId(null);
+      } catch (error) {
+        console.error("Error restoring content:", error);
+      }
+    }
+  };
+
+  const handlePermanentDeleteConfirm = async () => {
+    if (selectedContentId) {
+      try {
+        await permanentDeleteContentMutation.mutateAsync();
+        setPermanentDeleteDialogOpen(false);
+        setSelectedContentId(null);
+      } catch (error) {
+        console.error("Error permanently deleting content:", error);
+      }
+    }
+  };
+
   // Format dates for display
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
+  // Get status chip color based on content status
+  const getStatusColor = (
+    status?: string
+  ):
+    | "default"
+    | "primary"
+    | "secondary"
+    | "error"
+    | "info"
+    | "success"
+    | "warning" => {
+    switch (status) {
+      case "published":
+        return "success";
+      case "draft":
+        return "info";
+      case "archived":
+        return "warning";
+      default:
+        return "default";
+    }
+  };
+
+  // Get block type icon based on first block
+  const getContentTypeInfo = (
+    content: ContentResponseDto
+  ): {
+    label: string;
+    color:
+      | "default"
+      | "primary"
+      | "secondary"
+      | "error"
+      | "info"
+      | "success"
+      | "warning";
+  } => {
+    if (!content.blocks || content.blocks.length === 0) {
+      return { label: "Empty", color: "default" };
+    }
+
+    const firstBlock = content.blocks[0];
+    switch (firstBlock.type) {
+      case "image":
+        return { label: "Image", color: "success" };
+      case "video":
+        return { label: "Video", color: "error" };
+      case "text":
+        return { label: "Text", color: "primary" };
+      default:
+        return { label: "Mixed", color: "info" };
+    }
+  };
+
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: "100%" }}>
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {/* Search Field - Takes more space on mobile */}
-        <Grid item xs={12} md={6}>
+        {/* Search Field */}
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             variant="outlined"
@@ -152,9 +315,9 @@ export default function ContentTable({
             }}
           />
         </Grid>
-        
-        {/* Filter (assuming content has a status field) */}
-        <Grid item xs={6} md={3}>
+
+        {/* Filter by Status */}
+        <Grid size={{ xs: 6, md: 3 }}>
           <FormControl fullWidth>
             <InputLabel id="status-filter-label">Filter by Status</InputLabel>
             <Select
@@ -174,15 +337,17 @@ export default function ContentTable({
             </Select>
           </FormControl>
         </Grid>
-        
+
         {/* Sort Field */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <FormControl fullWidth>
             <InputLabel id="sort-field-label">Sort By</InputLabel>
             <Select
               labelId="sort-field-label"
               value={sortField}
-              onChange={(e) => handleSort(e.target.value as keyof Content)}
+              onChange={(e) =>
+                handleSort(e.target.value as keyof ContentResponseDto)
+              }
               startAdornment={
                 <InputAdornment position="start">
                   <SortIcon />
@@ -208,64 +373,178 @@ export default function ContentTable({
           <Table>
             <TableHead sx={{ backgroundColor: theme.palette.primary.main }}>
               <TableRow>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Title</TableCell>
-                {!isMobile && <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Created</TableCell>}
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Updated</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Actions</TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                  Title
+                </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                    Type
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                    Created
+                  </TableCell>
+                )}
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                  Updated
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold" }}
+                  align="center"
+                >
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 4} align="center">Loading...</TableCell>
+                  <TableCell colSpan={isMobile ? 3 : 5} align="center">
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              ) : paginatedRows.length === 0 ? (
+              ) : displayedRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 4} align="center">No content found</TableCell>
+                  <TableCell colSpan={isMobile ? 3 : 5} align="center">
+                    {localFiltering
+                      ? "No content matches the filters"
+                      : "No content found on this page"}
+                  </TableCell>
                 </TableRow>
               ) : (
-                paginatedRows.map((content) => (
+                displayedRows.map((content) => (
                   <TableRow key={content.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
                         {content.title}
                       </Typography>
-                      {content.status && (
-                        <Chip 
-                          size="small" 
-                          label={content.status} 
-                          color={
-                            content.status === 'published' ? 'success' : 
-                            content.status === 'draft' ? 'info' : 'default'
-                          } 
-                          sx={{ mt: 0.5 }}
-                        />
+                      {content.metadata &&
+                        typeof content.metadata.status === "string" && (
+                          <Chip
+                            size="small"
+                            label={content.metadata.status}
+                            color={getStatusColor(content.metadata.status)}
+                            sx={{ mt: 0.5 }}
+                          />
+                        )}
+                      {content.description && (
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{
+                            display: "block",
+                            mt: 0.5,
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                            maxWidth: "300px",
+                          }}
+                        >
+                          {content.description}
+                        </Typography>
                       )}
                     </TableCell>
+
                     {!isMobile && (
                       <TableCell>
-                        <Tooltip title={new Date(content.createdAt).toLocaleString()}>
-                          <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                        <Chip
+                          size="small"
+                          label={getContentTypeInfo(content).label}
+                          color={getContentTypeInfo(content).color}
+                          variant="outlined"
+                        />
+                        <Typography variant="caption" display="block" mt={0.5}>
+                          {content.blocks?.length || 0} blocks
+                        </Typography>
+                      </TableCell>
+                    )}
+
+                    {!isMobile && (
+                      <TableCell>
+                        <Tooltip
+                          title={new Date(content.createdAt).toLocaleString()}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
                             <CalendarTodayIcon fontSize="small" />
                             {formatDate(content.createdAt)}
                           </Box>
                         </Tooltip>
                       </TableCell>
                     )}
+
                     <TableCell>
-                      <Tooltip title={new Date(content.updatedAt).toLocaleString()}>
-                        <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                      <Tooltip
+                        title={new Date(content.updatedAt).toLocaleString()}
+                      >
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                        >
                           <CalendarTodayIcon fontSize="small" />
                           {formatDate(content.updatedAt)}
                         </Box>
                       </Tooltip>
                     </TableCell>
+
                     <TableCell align="center">
-                      <Link href={`/dashboard/content/${content.id}`} passHref>
-                        <IconButton size="small" color="primary">
-                          <EditIcon />
-                        </IconButton>
-                      </Link>
+                      <Box sx={{ display: "flex", justifyContent: "center" }}>
+                        <Link
+                          href={`/dashboard/content/preview/${content.id}`}
+                          passHref
+                        >
+                          <IconButton size="small" color="info">
+                            <VisibilityIcon />
+                          </IconButton>
+                        </Link>
+
+                        {!isTrashView && (
+                          <Link
+                            href={`/dashboard/content/${content.id}`}
+                            passHref
+                          >
+                            <IconButton size="small" color="primary">
+                              <EditIcon />
+                            </IconButton>
+                          </Link>
+                        )}
+
+                        {isTrashView ? (
+                          <>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleRestoreClick(content.id)}
+                            >
+                              <RestoreIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() =>
+                                handlePermanentDeleteClick(content.id)
+                              }
+                            >
+                              <DeleteForeverIcon />
+                            </IconButton>
+                          </>
+                        ) : (
+                          canDelete && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteClick(content.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -273,18 +552,94 @@ export default function ContentTable({
             </TableBody>
           </Table>
         </TableContainer>
-        
-        {/* Pagination */}
+
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
-          count={rowCount}
+          count={localFiltering ? filteredRows.length : rowCount}
           rowsPerPage={pageSize}
           page={page - 1}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
+
+      {/* Action Dialogs */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Delete Content</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this content? This action will move
+            the content to trash.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            autoFocus
+            disabled={deleteContentMutation.isPending}
+          >
+            {deleteContentMutation.isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={restoreDialogOpen}
+        onClose={() => setRestoreDialogOpen(false)}
+      >
+        <DialogTitle>Restore Content</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to restore this content? It will be visible
+            again in the main content list.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRestoreDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleRestoreConfirm}
+            color="primary"
+            autoFocus
+            disabled={restoreContentMutation.isPending}
+          >
+            {restoreContentMutation.isPending ? "Restoring..." : "Restore"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={permanentDeleteDialogOpen}
+        onClose={() => setPermanentDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Permanently Delete Content</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to permanently delete this content? This
+            action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPermanentDeleteDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePermanentDeleteConfirm}
+            color="error"
+            autoFocus
+            disabled={permanentDeleteContentMutation.isPending}
+          >
+            {permanentDeleteContentMutation.isPending
+              ? "Deleting..."
+              : "Delete Permanently"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

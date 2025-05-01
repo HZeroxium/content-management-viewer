@@ -12,12 +12,23 @@ import {
   Alert,
   CircularProgress,
 } from "@mui/material";
-import { loginSchema, LoginFormData } from "./schema";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { z } from "zod";
+import { useAppAuth } from "@/lib/hooks/useAppAuth"; // Updated import
 import { useRouter } from "next/navigation";
 
+// Define schema
+const loginSchema = z.object({
+  email: z.string().email({ message: "Invalid email format" }),
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters" }),
+});
+
+// Define type from schema
+type LoginFormData = z.infer<typeof loginSchema>;
+
 export default function LoginForm() {
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user } = useAppAuth(); // Updated hook
   const router = useRouter();
   // Use useState for success alert instead of relying on form state
   const [loginSuccess, setLoginSuccess] = useState(false);
