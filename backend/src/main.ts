@@ -18,6 +18,11 @@ async function bootstrap() {
   // 3) Global logging interceptor
   app.useGlobalInterceptors(new LoggingInterceptor());
 
+  app.enableCors({
+    origin: 'http://localhost:3001',
+    credentials: true,
+  });
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
