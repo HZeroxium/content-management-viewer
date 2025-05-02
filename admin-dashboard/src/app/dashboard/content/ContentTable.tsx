@@ -48,6 +48,8 @@ import {
   usePermanentDeleteContent,
 } from "@/lib/hooks/api/useContents";
 
+import { formatDate, formatDateTime } from "@/utils/format";
+
 interface Props {
   rows: ContentResponseDto[];
   rowCount: number;
@@ -219,15 +221,6 @@ export default function ContentTable({
     }
   };
 
-  // Format dates for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   return (
     <Box sx={{ width: "100%" }}>
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -359,7 +352,7 @@ export default function ContentTable({
                     {!isMobile && (
                       <TableCell>
                         <Tooltip
-                          title={new Date(content.createdAt).toLocaleString()}
+                          title={formatDateTime(content.createdAt || "")}
                         >
                           <Box
                             sx={{
@@ -369,21 +362,19 @@ export default function ContentTable({
                             }}
                           >
                             <CalendarTodayIcon fontSize="small" />
-                            {formatDate(content.createdAt)}
+                            {formatDate(content.createdAt || "")}
                           </Box>
                         </Tooltip>
                       </TableCell>
                     )}
 
                     <TableCell>
-                      <Tooltip
-                        title={new Date(content.updatedAt).toLocaleString()}
-                      >
+                      <Tooltip title={formatDateTime(content.updatedAt || "")}>
                         <Box
                           sx={{ display: "flex", alignItems: "center", gap: 1 }}
                         >
                           <CalendarTodayIcon fontSize="small" />
-                          {formatDate(content.updatedAt)}
+                          {formatDate(content.updatedAt || "")}
                         </Box>
                       </Tooltip>
                     </TableCell>
