@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -89,6 +89,9 @@ import { v4 as uuidv4 } from "uuid";
 interface BlockWithId extends ContentBlockDto {
   localId: string;
 }
+
+// Create a memoized version of the ContentBlockEditor component
+const MemoizedContentBlockEditor = memo(ContentBlockEditor);
 
 export default function ContentDetailPage() {
   const router = useRouter();
@@ -335,42 +338,55 @@ export default function ContentDetailPage() {
     }
   };
 
-  const handleUpdateBlock = (index: number, updatedBlock: ContentBlockDto) => {
-    const updatedBlocks = [...blocks];
-    updatedBlocks[index] = {
-      ...updatedBlocks[index],
-      ...updatedBlock,
-    };
-    setBlocks(updatedBlocks);
-    blocksRef.current = updatedBlocks;
-    setIsDirty(true);
-  };
+  const handleUpdateBlock = useCallback(
+    (index: number, updatedBlock: ContentBlockDto) => {
+      setBlocks((prevBlocks) => {
+        const updatedBlocks = [...prevBlocks];
+        updatedBlocks[index] = {
+          ...updatedBlocks[index],
+          ...updatedBlock,
+        };
+        blocksRef.current = updatedBlocks;
+        return updatedBlocks;
+      });
+      setIsDirty(true);
+    },
+    [setIsDirty]
+  );
 
-  const handleDeleteBlock = (index: number) => {
-    const updatedBlocks = [...blocks];
-    updatedBlocks.splice(index, 1);
-    setBlocks(updatedBlocks);
-    blocksRef.current = updatedBlocks;
-    setIsDirty(true);
-  };
+  const handleDeleteBlock = useCallback(
+    (index: number) => {
+      setBlocks((prevBlocks) => {
+        const updatedBlocks = [...prevBlocks];
+        updatedBlocks.splice(index, 1);
+        blocksRef.current = updatedBlocks;
+        return updatedBlocks;
+      });
+      setIsDirty(true);
+    },
+    [setIsDirty]
+  );
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return;
 
-    const items = Array.from(blocks);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+      const items = Array.from(blocks);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update positions
-    const updatedItems = items.map((item, index) => ({
-      ...item,
-      metadata: { ...item.metadata, position: index },
-    }));
+      // Update positions
+      const updatedItems = items.map((item, index) => ({
+        ...item,
+        metadata: { ...item.metadata, position: index },
+      }));
 
-    setBlocks(updatedItems);
-    blocksRef.current = updatedItems;
-    setIsDirty(true);
-  };
+      setBlocks(updatedItems);
+      blocksRef.current = updatedItems;
+      setIsDirty(true);
+    },
+    [blocks, setIsDirty]
+  );
 
   const handlePreview = () => {
     if (isEditMode && content?.id) {
@@ -964,126 +980,137 @@ export default function ContentDetailPage() {
                               draggableId={block.localId}
                               index={index}
                             >
-                              {(provided, snapshot) => (
-                                <Card
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  component={motion.div}
-                                  initial={{ opacity: 0, y: 20 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{
-                                    duration: 0.3,
-                                    delay: index * 0.05,
-                                  }}
-                                  sx={{
-                                    mb: 2,
-                                    p: 2,
-                                    borderRadius: 2,
-                                    boxShadow: snapshot.isDragging ? 8 : 1,
-                                    transform: snapshot.isDragging
-                                      ? "scale(1.02)"
-                                      : "scale(1)",
-                                    transition:
-                                      "box-shadow 0.2s ease, transform 0.2s ease",
-                                    border: `1px solid ${
-                                      snapshot.isDragging
-                                        ? theme.palette.primary.main
-                                        : alpha(theme.palette.divider, 0.7)
-                                    }`,
-                                    bgcolor: snapshot.isDragging
-                                      ? alpha(theme.palette.primary.light, 0.05)
-                                      : theme.palette.background.paper,
-                                  }}
-                                >
-                                  <Box
-                                    sx={{
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      mb: 2,
+                              {(provided, snapshot) => {
+                                // Separate animation styles from dragging styles
+                                return (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    style={{
+                                      ...provided.draggableProps.style,
+                                      marginBottom: "16px",
                                     }}
                                   >
-                                    <Box
+                                    <Card
                                       sx={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        cursor: snapshot.isDragging
-                                          ? "grabbing"
-                                          : "grab",
+                                        p: 2,
+                                        borderRadius: 2,
+                                        boxShadow: snapshot.isDragging ? 8 : 1,
+                                        ...(snapshot.isDragging
+                                          ? {
+                                              borderColor:
+                                                theme.palette.primary.main,
+                                              borderWidth: "1px",
+                                              borderStyle: "solid",
+                                              bgcolor: alpha(
+                                                theme.palette.primary.light,
+                                                0.05
+                                              ),
+                                            }
+                                          : {
+                                              borderColor: alpha(
+                                                theme.palette.divider,
+                                                0.7
+                                              ),
+                                              borderWidth: "1px",
+                                              borderStyle: "solid",
+                                              bgcolor:
+                                                theme.palette.background.paper,
+                                              transition:
+                                                "box-shadow 0.2s ease",
+                                            }),
                                       }}
-                                      {...provided.dragHandleProps}
                                     >
-                                      <DragHandleIcon
+                                      <Box
                                         sx={{
-                                          mr: 1,
-                                          color: snapshot.isDragging
-                                            ? "primary.main"
-                                            : "text.secondary",
-                                          transform: snapshot.isDragging
-                                            ? "rotate(-10deg)"
-                                            : "none",
-                                          transition: "all 0.2s ease",
-                                        }}
-                                      />
-                                      <Chip
-                                        label={
-                                          block.type.charAt(0).toUpperCase() +
-                                          block.type.slice(1)
-                                        }
-                                        size="small"
-                                        color={
-                                          block.type === "text"
-                                            ? "primary"
-                                            : block.type === "image"
-                                            ? "success"
-                                            : "error"
-                                        }
-                                        icon={
-                                          block.type === "text" ? (
-                                            <TextFieldsIcon />
-                                          ) : block.type === "image" ? (
-                                            <ImageIcon />
-                                          ) : (
-                                            <VideoLibraryIcon />
-                                          )
-                                        }
-                                      />
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          ml: 1,
-                                          color: "text.secondary",
-                                          fontWeight: "medium",
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                          mb: 2,
                                         }}
                                       >
-                                        Block {index + 1}
-                                      </Typography>
-                                    </Box>
-                                    <Tooltip title="Remove block">
-                                      <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDeleteBlock(index)}
-                                        sx={{
-                                          transition: "transform 0.2s ease",
-                                          "&:hover": {
-                                            transform: "rotate(90deg)",
-                                          },
-                                        }}
-                                      >
-                                        <DeleteIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                  </Box>
+                                        <Box
+                                          sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            cursor: snapshot.isDragging
+                                              ? "grabbing"
+                                              : "grab",
+                                          }}
+                                          {...provided.dragHandleProps}
+                                        >
+                                          <DragHandleIcon
+                                            sx={{
+                                              mr: 1,
+                                              color: snapshot.isDragging
+                                                ? "primary.main"
+                                                : "text.secondary",
+                                            }}
+                                          />
+                                          <Chip
+                                            label={
+                                              block.type
+                                                .charAt(0)
+                                                .toUpperCase() +
+                                              block.type.slice(1)
+                                            }
+                                            size="small"
+                                            color={
+                                              block.type === "text"
+                                                ? "primary"
+                                                : block.type === "image"
+                                                ? "success"
+                                                : "error"
+                                            }
+                                            icon={
+                                              block.type === "text" ? (
+                                                <TextFieldsIcon />
+                                              ) : block.type === "image" ? (
+                                                <ImageIcon />
+                                              ) : (
+                                                <VideoLibraryIcon />
+                                              )
+                                            }
+                                          />
+                                          <Typography
+                                            variant="caption"
+                                            sx={{
+                                              ml: 1,
+                                              color: "text.secondary",
+                                              fontWeight: "medium",
+                                            }}
+                                          >
+                                            Block {index + 1}
+                                          </Typography>
+                                        </Box>
+                                        <Tooltip title="Remove block">
+                                          <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() =>
+                                              handleDeleteBlock(index)
+                                            }
+                                            sx={{
+                                              "&:hover": {
+                                                color: theme.palette.error.dark,
+                                              },
+                                            }}
+                                          >
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                      </Box>
 
-                                  <ContentBlockEditor
-                                    block={block}
-                                    onChange={(updatedBlock) =>
-                                      handleUpdateBlock(index, updatedBlock)
-                                    }
-                                  />
-                                </Card>
-                              )}
+                                      <MemoizedContentBlockEditor
+                                        block={block}
+                                        onChange={(updatedBlock) =>
+                                          handleUpdateBlock(index, updatedBlock)
+                                        }
+                                      />
+                                    </Card>
+                                  </div>
+                                );
+                              }}
                             </Draggable>
                           ))}
                           {provided.placeholder}
