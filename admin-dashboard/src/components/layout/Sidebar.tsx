@@ -15,7 +15,6 @@ import {
   useTheme,
 } from "@mui/material";
 import {
-  Dashboard as DashboardIcon,
   People as PeopleIcon,
   Article as ArticleIcon,
   Category as CategoryIcon,
@@ -36,7 +35,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const router = useRouter();
 
   const menuItems = [
-    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "Users", icon: <PeopleIcon />, path: "/dashboard/users" },
     { text: "Content", icon: <ArticleIcon />, path: "/dashboard/content" },
     {

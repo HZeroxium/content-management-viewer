@@ -36,6 +36,7 @@ export class ContentService extends BaseCrudService<
     private readonly gateway: ContentGateway,
     private readonly transactionService: TransactionService,
     private readonly contentProcessor: ContentProcessorService,
+    private readonly contentGateway: ContentGateway,
   ) {
     super();
   }
@@ -165,12 +166,20 @@ export class ContentService extends BaseCrudService<
   async update(
     id: string,
     dto: UpdateContentDto,
-    updatedBy: string,
+    userId: string,
   ): Promise<ContentResponseDto> {
     try {
-      const updated = await super.update(id, dto, updatedBy);
-      this.broadcastContentUpdate('update', updated);
-      return updated;
+      const updatedContent = await super.update(id, dto, userId);
+
+      // Broadcast update to all connected clients
+      this.contentGateway.broadcastContentUpdate({
+        id: updatedContent.id,
+        action: 'update',
+        data: updatedContent,
+      });
+
+      this.broadcastContentUpdate('update', updatedContent);
+      return updatedContent;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

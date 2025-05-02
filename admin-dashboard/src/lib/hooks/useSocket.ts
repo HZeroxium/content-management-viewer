@@ -1,68 +1,158 @@
 // src/lib/hooks/useSocket.ts
-import { useEffect } from "react";
-import io, { Socket } from "socket.io-client";
+import { useEffect, useState, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { setSocketStatus } from "@/lib/store/slices/ui.slice";
 import { useQueryClient } from "@tanstack/react-query";
+import { socketService } from "@/lib/services/socket.service";
+import { setSocketStatus } from "@/lib/store/slices/ui.slice";
 import { SocketEvent } from "@/lib/socket/socket-events";
 import { ContentResponseDto as Content } from "@/lib/types/content";
 
-let socket: Socket | null = null;
-
+/**
+ * Hook for global socket connection management
+ * Handles global socket events and dispatches status to Redux
+ */
 export function useSocket() {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (socket) return; // singleton
+    // Ensure socket is connected
+    socketService.connect();
 
-    // 1) Connect with JWT - UPDATE WITH CORRECT PATH!
-    socket = io(process.env.NEXT_PUBLIC_WS_URL!, {
-      path: "/ws/content", // Add this line to match backend configuration
-      auth: { token: `Bearer ${localStorage.getItem("auth_token")}` }, // Also fixed token key to match your axios interceptor
-      reconnectionAttempts: 5, // Add reconnection configuration
-      reconnectionDelay: 1000, // Start with 1s delay
-      reconnectionDelayMax: 5000, // Max 5s delay between reconnection attempts
-      timeout: 20000, // Connection timeout
-    });
-
-    // 2) Connection state
-    socket.on("connect", () => {
+    // Setup additional event handlers for global events
+    const handleConnect = () => {
       console.log("Socket connected successfully");
       dispatch(setSocketStatus(true));
-    });
 
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-      dispatch(setSocketStatus(false));
-    });
+      // Dispatch custom event for other hooks
+      window.dispatchEvent(new Event("socket:connected"));
+    };
 
-    socket.on("disconnect", (reason) => {
+    const handleDisconnect = (reason: string) => {
       console.log("Socket disconnected:", reason);
       dispatch(setSocketStatus(false));
-    });
 
-    // 3) Handle content updates
-    socket.on(
-      SocketEvent.ContentUpdated,
-      (payload: { action: string; content?: Content; id?: string }) => {
-        // Invalidate list + detail queries
-        queryClient.invalidateQueries({ queryKey: ["content", "list"] });
-        if (payload.content?.id) {
-          queryClient.invalidateQueries({
-            queryKey: ["content", "detail", payload.content.id],
-          });
+      // Dispatch custom event for other hooks
+      window.dispatchEvent(new Event("socket:disconnected"));
+    };
+
+    const handleConnectError = (error: Error) => {
+      console.error("Socket connection error:", error);
+      dispatch(setSocketStatus(false));
+
+      // Dispatch custom event for other hooks
+      window.dispatchEvent(new Event("socket:disconnected"));
+    };
+
+    const handleContentUpdated = (payload: {
+      action: string;
+      content?: Content;
+      id?: string;
+    }) => {
+      // Invalidate list queries
+      queryClient.invalidateQueries({ queryKey: ["content", "list"] });
+
+      // Invalidate specific content query if we have an ID
+      if (payload.content?.id) {
+        queryClient.invalidateQueries({
+          queryKey: ["content", payload.content.id],
+        });
+      }
+
+      // Emit custom event for UI notifications
+      window.dispatchEvent(
+        new CustomEvent("content:remote-update", { detail: payload })
+      );
+    };
+
+    // Add listeners to the socket service
+    socketService.addListener("connect", handleConnect);
+    socketService.addListener("disconnect", handleDisconnect);
+    socketService.addListener("connect_error", handleConnectError);
+    socketService.addListener(SocketEvent.ContentUpdated, handleContentUpdated);
+
+    // Clean up event listeners
+    return () => {
+      socketService.removeListener("connect", handleConnect);
+      socketService.removeListener("disconnect", handleDisconnect);
+      socketService.removeListener("connect_error", handleConnectError);
+      socketService.removeListener(
+        SocketEvent.ContentUpdated,
+        handleContentUpdated
+      );
+    };
+  }, [dispatch, queryClient]);
+}
+
+/**
+ * Hook for subscribing to real-time updates for a specific content
+ * @param contentId - ID of the content to subscribe to
+ * @returns Object containing connection status and last update data
+ */
+export function useSocketSubscription(contentId?: string) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<any>(null);
+  const queryClient = useQueryClient();
+  const subscription = useRef<() => void>();
+
+  // Handle connection status
+  useEffect(() => {
+    // Ensure socket is connected
+    socketService.connect();
+
+    const handleConnected = () => {
+      setIsConnected(true);
+    };
+
+    const handleDisconnected = () => {
+      setIsConnected(false);
+    };
+
+    // Set up global listeners
+    window.addEventListener("socket:connected", handleConnected);
+    window.addEventListener("socket:disconnected", handleDisconnected);
+
+    // Check initial connection state
+    setIsConnected(socketService.isConnected());
+
+    return () => {
+      window.removeEventListener("socket:connected", handleConnected);
+      window.removeEventListener("socket:disconnected", handleDisconnected);
+    };
+  }, []);
+
+  // Subscribe to updates for a specific content
+  useEffect(() => {
+    if (!contentId) return;
+
+    // Clean up previous subscription if exists
+    if (subscription.current) {
+      subscription.current();
+    }
+
+    // Create new subscription
+    subscription.current = socketService.subscribeToContentUpdates(
+      contentId,
+      (data) => {
+        setLastUpdate(data);
+
+        // Update the React Query cache
+        if (data?.data) {
+          queryClient.setQueryData(["content", contentId], data.data);
+
+          // Show a notification - could dispatch a custom event here
+          const event = new CustomEvent("content:updated", { detail: data });
+          window.dispatchEvent(event);
         }
-        // You can emit a custom event to UI for toast
-        window.dispatchEvent(
-          new CustomEvent("content:remote-update", { detail: payload })
-        );
       }
     );
 
     return () => {
-      socket?.disconnect();
-      socket = null;
+      if (subscription.current) {
+        subscription.current();
+      }
     };
-  }, [dispatch, queryClient]);
+  }, [contentId, queryClient]);
+
+  return { isConnected, lastUpdate };
 }

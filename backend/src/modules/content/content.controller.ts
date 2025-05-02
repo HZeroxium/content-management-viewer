@@ -23,11 +23,15 @@ import { PaginationQueryDto } from '@common/dto/pagination.dto';
 import { ContentResponseDto } from './dto/content-response.dto';
 import { CreateContentWithBlocksDto } from './dto/create-content-with-blocks.dto';
 import { Public } from '@common/decorators/public.decorator';
+import { ContentGateway } from '../../websocket/content.gateway';
 
 @Controller('content')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ContentController {
-  constructor(private readonly contentService: ContentService) {}
+  constructor(
+    private readonly contentService: ContentService,
+    private readonly contentGateway: ContentGateway,
+  ) {}
 
   /**
    * POST /content
@@ -92,6 +96,14 @@ export class ContentController {
     message: string;
   }> {
     const content = await this.contentService.update(id, dto, req.user.userId);
+
+    // Broadcast the content update to all connected clients
+    this.contentGateway.broadcastContentUpdate({
+      id: content.id,
+      action: 'update',
+      data: content,
+    });
+
     return {
       success: true,
       content,

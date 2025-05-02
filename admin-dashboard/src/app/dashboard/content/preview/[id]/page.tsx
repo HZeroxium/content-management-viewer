@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useContent } from "@/lib/hooks/api/useContents";
+import { useSocketSubscription } from "@/lib/hooks/useSocket";
 import {
   Box,
   Container,
@@ -27,10 +28,37 @@ export default function ContentPreviewPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  const { isConnected } = useSocketSubscription(id);
+
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [previousTitle, setPreviousTitle] = useState("");
+  const [showConnectionStatus, setShowConnectionStatus] = useState(false);
 
   // Fetch content data
   const { data: content, isLoading, error } = useContent(id);
+
+  // Track content changes for animation triggers
+  useEffect(() => {
+    if (content && content.title !== previousTitle && previousTitle !== "") {
+      setIsUpdating(true);
+      const timer = setTimeout(() => setIsUpdating(false), 1000);
+      return () => clearTimeout(timer);
+    }
+
+    if (content) {
+      setPreviousTitle(content.title);
+    }
+  }, [content, previousTitle]);
+
+  useEffect(() => {
+    // Show connection status briefly when it changes
+    if (isConnected !== undefined) {
+      setShowConnectionStatus(true);
+      const timer = setTimeout(() => setShowConnectionStatus(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected]);
 
   // Format date for display
   const formatDate = (dateString: string | null | undefined): string => {
@@ -173,6 +201,58 @@ export default function ContentPreviewPage() {
         </Container>
       </Box>
 
+      {/* Connection status indicator */}
+      <AnimatePresence>
+        {showConnectionStatus && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              position: "fixed",
+              top: 70,
+              right: 20,
+              zIndex: 1000,
+            }}
+          >
+            <Paper
+              elevation={2}
+              sx={{
+                py: 0.5,
+                px: 1.5,
+                backgroundColor: isConnected
+                  ? theme.palette.success.light
+                  : theme.palette.error.light,
+                color: isConnected
+                  ? theme.palette.success.contrastText
+                  : theme.palette.error.contrastText,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                borderRadius: 8,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: isConnected
+                    ? theme.palette.success.main
+                    : theme.palette.error.main,
+                }}
+              />
+              <Typography variant="caption" fontWeight="medium">
+                {isConnected
+                  ? "Real-time updates active"
+                  : "Connecting to server..."}
+              </Typography>
+            </Paper>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Content preview */}
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
@@ -188,26 +268,51 @@ export default function ContentPreviewPage() {
               overflow: "hidden",
             }}
           >
+            {/* Add highlight effect when content updates */}
+            {isUpdating && (
+              <motion.div
+                initial={{
+                  opacity: 0.8,
+                  backgroundColor: theme.palette.primary.light,
+                }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 1 }}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  pointerEvents: "none",
+                  zIndex: 5,
+                }}
+              />
+            )}
+
             {/* Content header */}
             <ContentHeader content={content} />
 
-            {/* Content blocks */}
+            {/* Content blocks with keyed AnimatePresence for smooth transitions */}
             <Box sx={{ p: { xs: 2, md: 4 }, pt: 2 }}>
-              <AnimatePresence>
-                {content.blocks && content.blocks.length > 0 ? (
-                  content.blocks.map((block, index) => (
-                    <BlockRenderer
-                      key={`block-${index}`}
-                      block={block}
-                      index={index}
-                    />
-                  ))
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={content?.updatedAt || "content"}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {content?.blocks && content.blocks.length > 0 ? (
+                    content.blocks.map((block, index) => (
+                      <BlockRenderer
+                        key={`block-${block.localId || index}-${
+                          content.updatedAt || ""
+                        }`}
+                        block={block}
+                        index={index}
+                      />
+                    ))
+                  ) : (
                     <Paper
                       sx={{
                         p: 4,
@@ -219,12 +324,45 @@ export default function ContentPreviewPage() {
                         This content has no blocks to display.
                       </Typography>
                     </Paper>
-                  </motion.div>
-                )}
+                  )}
+                </motion.div>
               </AnimatePresence>
             </Box>
           </motion.div>
         </Box>
+
+        {/* Add toast notification area for updates */}
+        <AnimatePresence>
+          {isUpdating && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              style={{
+                position: "fixed",
+                bottom: 20,
+                right: 20,
+                zIndex: 1000,
+              }}
+            >
+              <Paper
+                elevation={3}
+                sx={{
+                  p: 2,
+                  backgroundColor: theme.palette.success.light,
+                  color: theme.palette.success.contrastText,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <Typography variant="body2">
+                  Content updated in real-time
+                </Typography>
+              </Paper>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Container>
     </Box>
   );
