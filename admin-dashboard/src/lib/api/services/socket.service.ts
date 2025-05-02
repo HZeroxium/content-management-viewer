@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
-import { store } from "../store/store";
-import { setSocketStatus } from "../store/slices/ui.slice";
+import { store } from "../../store/store";
+import { setSocketStatus } from "../../store/slices/ui.slice";
 
 class SocketService {
   private socket: Socket | null = null;

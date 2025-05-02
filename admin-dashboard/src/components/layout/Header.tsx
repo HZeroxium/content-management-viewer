@@ -1,3 +1,5 @@
+// /src/components/layout/Header.tsx
+
 "use client";
 
 import React from "react";
@@ -10,12 +12,18 @@ import {
   MenuItem,
   Toolbar,
   Typography,
+  Tooltip,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import Brightness4Icon from "@mui/icons-material/Brightness4";
+import Brightness7Icon from "@mui/icons-material/Brightness7";
 import { useAppAuth } from "@/lib/hooks/useAppAuth";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { useSelector } from "react-redux";
+import { RootState } from "@/lib/store";
+import { useSocket } from "@/lib/hooks/useSocket";
+import { useTheme } from "@/contexts/theme-context";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -24,6 +32,11 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAppAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const socketConnected = useSelector((s: RootState) => s.ui.socketConnected);
+  const { currentTheme, toggleTheme } = useTheme();
+
+  // Initialize the WebSocket connection
+  useSocket();
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -36,6 +49,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const handleLogout = async () => {
     await logout();
     handleMenuClose();
+  };
+
+  // Get user initials for avatar
+  const getInitials = (): string => {
+    if (!user) return "";
+    if (user.name) return user.name.charAt(0).toUpperCase();
+    if (user.email) return user.email.charAt(0).toUpperCase();
+    return "U";
   };
 
   return (
@@ -60,28 +81,49 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <Box sx={{ mr: 2 }}>
-            <ConnectionStatus />
-          </Box>
+          {/* Socket connection status */}
+          <Tooltip
+            title={socketConnected ? "Connected to server" : "Disconnected"}
+          >
+            <Box sx={{ mx: 1 }}>
+              <ConnectionStatus />
+            </Box>
+          </Tooltip>
 
-          <IconButton size="large" color="inherit">
-            <NotificationsIcon />
-          </IconButton>
-
-          <Box sx={{ ml: 2 }}>
-            <IconButton
-              onClick={handleProfileMenuOpen}
-              size="small"
-              sx={{ padding: 0 }}
-            >
-              {user?.name ? (
-                <Avatar alt={user.name} sx={{ width: 32, height: 32 }}>
-                  {user.name.charAt(0).toUpperCase()}
-                </Avatar>
+          {/* Dark mode toggle */}
+          <Tooltip
+            title={`Switch to ${
+              currentTheme === "light" ? "dark" : "light"
+            } mode`}
+          >
+            <IconButton color="inherit" onClick={toggleTheme} sx={{ mx: 1 }}>
+              {currentTheme === "light" ? (
+                <Brightness4Icon />
               ) : (
-                <AccountCircleIcon fontSize="large" />
+                <Brightness7Icon />
               )}
             </IconButton>
+          </Tooltip>
+
+          {/* User profile */}
+          <Box sx={{ ml: 1 }}>
+            <Tooltip title="Account settings">
+              <IconButton
+                onClick={handleProfileMenuOpen}
+                size="small"
+                sx={{ padding: 0 }}
+              >
+                {user ? (
+                  <Avatar
+                    sx={{ width: 32, height: 32, bgcolor: "secondary.main" }}
+                  >
+                    {getInitials()}
+                  </Avatar>
+                ) : (
+                  <AccountCircleIcon fontSize="large" />
+                )}
+              </IconButton>
+            </Tooltip>
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}

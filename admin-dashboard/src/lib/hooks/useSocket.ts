@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useQueryClient } from "@tanstack/react-query";
-import { socketService } from "@/lib/services/socket.service";
+import { socketService } from "@/lib/api/services/socket.service";
 import { setSocketStatus } from "@/lib/store/slices/ui.slice";
 import { SocketEvent } from "@/lib/socket/socket-events";
 import { ContentResponseDto as Content } from "@/lib/types/content";
@@ -89,11 +89,18 @@ export function useSocket() {
  * @param contentId - ID of the content to subscribe to
  * @returns Object containing connection status and last update data
  */
+interface ContentUpdate {
+  action: string;
+  content?: Content;
+  id?: string;
+  data?: Content;
+}
+
 export function useSocketSubscription(contentId?: string) {
   const [isConnected, setIsConnected] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<any>(null);
+  const [lastUpdate, setLastUpdate] = useState<ContentUpdate | null>(null);
   const queryClient = useQueryClient();
-  const subscription = useRef<() => void>();
+  const subscription = useRef<(() => void) | null>(null);
 
   // Handle connection status
   useEffect(() => {

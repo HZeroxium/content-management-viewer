@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeContextProvider } from "@/contexts/theme-context";
 import { ReduxProvider } from "@/contexts/redux-provider";
 import { useState, useEffect } from "react";
-import { socketService } from "@/lib/services/socket.service";
+import { socketService } from "@/lib/api/services/socket.service";
 
 const inter = Inter({ subsets: ["latin"] });
 

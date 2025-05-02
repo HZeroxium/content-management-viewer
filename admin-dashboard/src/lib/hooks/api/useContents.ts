@@ -11,7 +11,7 @@ import {
   UpdateContentDto,
 } from "@/lib/types/content";
 import { PaginationQuery } from "@/lib/types/base";
-import { socketService } from "@/lib/services/socket.service";
+import { socketService } from "@/lib/api/services/socket.service";
 import { useEffect, useMemo } from "react";
 
 // Query keys for React Query
