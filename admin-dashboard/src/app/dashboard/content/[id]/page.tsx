@@ -147,7 +147,7 @@ export default function ContentDetailPage() {
       const contentData = {
         title: content.title || "", // Ensure never undefined
         description: content.description || "",
-        blocks: blocks.map(({ localId: _, ...blockData }) => blockData), // Explicitly ignore localId
+        blocks: blocks.map(({ localId: _localId, ...blockData }) => blockData), // Exclude localId
         metadata: content.metadata || {},
       };
 

@@ -14,6 +14,7 @@ import {
 import { ContentBlockDto } from "@/lib/types/content";
 import FileSelector from "./FileSelector";
 import EditIcon from "@mui/icons-material/Edit";
+import RichTextEditor from "../components/RichTextEditor";
 
 interface ContentBlockEditorProps {
   block: ContentBlockDto;
@@ -35,7 +36,18 @@ export default function ContentBlockEditor({
       : null
   );
 
-  const handleTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTextChange = (html: string) => {
+    onChange({
+      ...block,
+      text: html,
+      metadata: {
+        ...block.metadata,
+        isRichText: true,
+      },
+    });
+  };
+
+  const handleCaptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     onChange({
       ...block,
       text: event.target.value,
@@ -46,7 +58,7 @@ export default function ContentBlockEditor({
     setSelectedFileUrl(fileUrl);
     onChange({
       ...block,
-      url: fileUrl, // Set URL directly on the block
+      url: fileUrl,
       metadata: {
         ...block.metadata,
         fileId: fileId,
@@ -60,15 +72,11 @@ export default function ContentBlockEditor({
     switch (block.type) {
       case "text":
         return (
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            maxRows={10}
-            value={block.text || ""}
+          <RichTextEditor
+            content={block.text || ""}
             onChange={handleTextChange}
-            variant="outlined"
-            placeholder="Enter text content..."
+            placeholder="Enter rich text content..."
+            autoFocus={!block.text}
           />
         );
 
@@ -116,7 +124,7 @@ export default function ContentBlockEditor({
                 margin="normal"
                 label="Image Caption"
                 value={block.text}
-                onChange={handleTextChange}
+                onChange={handleCaptionChange}
                 variant="outlined"
               />
             )}
@@ -166,7 +174,7 @@ export default function ContentBlockEditor({
                 margin="normal"
                 label="Video Caption"
                 value={block.text}
-                onChange={handleTextChange}
+                onChange={handleCaptionChange}
                 variant="outlined"
               />
             )}

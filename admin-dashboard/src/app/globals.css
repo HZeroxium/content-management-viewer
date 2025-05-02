@@ -24,3 +24,90 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Rich Text Content Styling */
+.rich-text-content h1,
+.rich-text-content h2,
+.rich-text-content h3,
+.rich-text-content h4,
+.rich-text-content h5,
+.rich-text-content h6 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: inherit;
+}
+
+.rich-text-content h1 {
+  font-size: 2rem;
+}
+
+.rich-text-content h2 {
+  font-size: 1.75rem;
+}
+
+.rich-text-content h3 {
+  font-size: 1.5rem;
+}
+
+.rich-text-content h4 {
+  font-size: 1.25rem;
+}
+
+.rich-text-content h5 {
+  font-size: 1.1rem;
+}
+
+.rich-text-content h6 {
+  font-size: 1rem;
+}
+
+.rich-text-content p {
+  margin-bottom: 1em;
+}
+
+.rich-text-content a {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.rich-text-content a:hover {
+  text-decoration: underline;
+}
+
+.rich-text-content ul, 
+.rich-text-content ol {
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.rich-text-content li {
+  margin-bottom: 0.5em;
+}
+
+.rich-text-content blockquote {
+  border-left: 4px solid #e0e0e0;
+  padding-left: 1em;
+  font-style: italic;
+  margin: 1em 0;
+}
+
+.rich-text-content code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.rich-text-content pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 1em;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.rich-text-editor-content:focus-visible {
+  outline: none;
+}
