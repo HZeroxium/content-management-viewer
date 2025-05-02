@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Box } from "@mui/material";
-import { ContentBlockProps } from "@/lib/types/content-block";
+import { ContentBlockDto as ContentBlockProps } from "@/lib/types/content";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";

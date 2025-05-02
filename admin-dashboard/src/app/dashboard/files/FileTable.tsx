@@ -41,7 +41,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useDeleteFile } from "@/lib/hooks/api/useFiles";
-import { formatFileSize, formatDateTime } from "@/lib/utils/format";
+import { formatFileSize, formatDateTime } from "@/utils/format";
 
 interface Props {
   rows: FileResponseDto[];
@@ -201,7 +201,17 @@ export default function FileTable({
   // Get file type icon and color based on MIME type
   const getFileTypeInfo = (
     contentType: string
-  ): { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' } => {
+  ): {
+    label: string;
+    color:
+      | "default"
+      | "primary"
+      | "secondary"
+      | "error"
+      | "info"
+      | "success"
+      | "warning";
+  } => {
     if (contentType.startsWith("image/")) {
       return { label: "Image", color: "success" };
     }
@@ -367,9 +377,7 @@ export default function FileTable({
                       <TableCell>{formatFileSize(file.size)}</TableCell>
                     )}
                     {!isMobile && (
-                      <TableCell>
-                        {formatDateTime(file.createdAt)}
-                      </TableCell>
+                      <TableCell>{formatDateTime(file.createdAt)}</TableCell>
                     )}
                     <TableCell align="center">
                       <Box sx={{ display: "flex", justifyContent: "center" }}>

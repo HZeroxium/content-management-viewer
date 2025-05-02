@@ -49,7 +49,7 @@ export default function FileUploadPage() {
   const {
     control,
     handleSubmit,
-    formState: {  },
+    formState: {},
     reset,
   } = useForm<UploadForm>({
     defaultValues: {
@@ -102,6 +102,23 @@ export default function FileUploadPage() {
     }
   };
 
+  // Type narrowing before accessing response property
+  const handleUploadError = (err: unknown) => {
+    console.error("Upload error:", err);
+    let errorMessage = "File upload failed";
+
+    // Type narrowing
+    if (err && typeof err === "object" && "response" in err) {
+      const errorObj = err as { response?: { data?: { message?: string } } };
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      }
+    }
+
+    dispatch(setFilesError(errorMessage));
+    setUploadProgress(0);
+  };
+
   // Handle form submission
   const onSubmit: SubmitHandler<UploadForm> = async (data) => {
     if (!selectedFile) {
@@ -113,10 +130,7 @@ export default function FileUploadPage() {
       dispatch(clearFilesError());
       setUploadProgress(0);
 
-      // Create a unique ID for this upload to track progress
-      // const uploadId = Date.now().toString();
-
-      // Simulate progress updates (in a real app, you'd get these from your upload API)
+      // Create a progress interval for visual feedback
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 99) {
@@ -127,11 +141,12 @@ export default function FileUploadPage() {
         });
       }, 300);
 
-      // Prepare upload data
+      // Prepare upload data - ensure all fields match exactly what backend expects
       const uploadData: UploadFileDto = {
         folder: data.folder || undefined,
-        fileName: data.fileName || undefined,
-        isPrivate: data.isPrivate,
+        fileName: data.fileName || undefined, // Make sure this matches backend param name
+        isPrivate: data.isPrivate || false,
+        metadata: data.metadata || undefined,
       };
 
       // Execute file upload
@@ -152,21 +167,7 @@ export default function FileUploadPage() {
         router.push("/dashboard/files");
       }, 1000);
     } catch (error) {
-      console.error("File upload error:", error);
-
-      let errorMessage = "Failed to upload file. Please try again.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error
-      ) {
-        errorMessage = String((error as Error).message);
-      }
-
-      dispatch(setFilesError(errorMessage));
-      setUploadProgress(0);
+      handleUploadError(error);
     }
   };
 

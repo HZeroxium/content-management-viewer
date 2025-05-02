@@ -13,9 +13,10 @@ import {
   Typography,
   Container,
   Paper,
-  Alert,
   CircularProgress,
 } from "@mui/material";
+import { useErrorHandler } from "@/lib/hooks/useErrorHandler";
+import ErrorDisplay from "@/components/common/ErrorDisplay";
 
 interface LoginFormData {
   email: string;
@@ -23,7 +24,7 @@ interface LoginFormData {
 }
 
 export default function LoginPage() {
-  const [error, setError] = useState("");
+  const { error, handleError, clearError } = useErrorHandler();
   const [loginProcessing, setLoginProcessing] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { login, isAuthenticated, user, isLoading } = useAppAuth();
@@ -59,7 +60,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      setError("");
+      clearError();
       setLoginProcessing(true);
 
       console.log("Starting login process for:", data.email);
@@ -71,26 +72,7 @@ export default function LoginPage() {
 
       // Login handled by the effect above - no need for additional redirect here
     } catch (err) {
-      console.error("Login error:", err);
-      let errorMessage = "Invalid email or password. Please try again.";
-
-      // Try to extract more specific error message
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (typeof err === "object" && err !== null) {
-        interface ErrorWithData {
-          data?: { message?: string };
-          message?: string;
-        }
-        const errorObj = err as ErrorWithData;
-        if (errorObj.data?.message) {
-          errorMessage = errorObj.data.message;
-        } else if (errorObj.message) {
-          errorMessage = errorObj.message;
-        }
-      }
-
-      setError(errorMessage);
+      handleError(err);
     } finally {
       setLoginProcessing(false);
     }
@@ -144,11 +126,7 @@ export default function LoginPage() {
           Sign In
         </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ width: "100%", mt: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {error && <ErrorDisplay error={error as Error} />}
 
         <Box
           component="form"

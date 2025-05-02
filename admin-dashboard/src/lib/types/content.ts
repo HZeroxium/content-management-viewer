@@ -2,50 +2,43 @@
 
 // Types for content management
 
+// Define the content block types
 export interface ContentBlockDto {
   type: "text" | "image" | "video";
-  content?: string;
-  metadata?: {
-    fileId?: string;
-    fileUrl?: string;
-    position?: number;
-    [key: string]: unknown;
-  };
+  text?: string; // For text blocks
+  url?: string; // For image/video blocks
+  fileId?: string; // For file references
+  metadata?: Record<string, unknown>;
 }
 
+// Main content DTO
 export interface ContentResponseDto {
   id: string;
   title: string;
   description?: string;
   blocks: ContentBlockDto[];
-  metadata: {
-    status?: "draft" | "published" | "archived";
-    [key: string]: unknown;
-  };
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  updatedBy: string;
-  deletedAt: string | null;
-  deletedBy: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
 }
 
-export interface CreateContentWithBlocksDto {
-  title: string;
-  description?: string;
-  blocks: ContentBlockDto[];
-  metadata?: {
-    [key: string]: unknown;
-  };
-}
-
+// Update DTO
 export interface UpdateContentDto {
   title?: string;
   description?: string;
   blocks?: ContentBlockDto[];
-  metadata?: {
-    [key: string]: unknown;
-  };
+  metadata?: Record<string, unknown>;
 }
 
-export type Content = ContentResponseDto;
+// Create DTO with blocks
+export interface CreateContentWithBlocksDto {
+  title: string;
+  description?: string;
+  slug?: string;
+  metadata?: Record<string, unknown>;
+  blocks: ContentBlockDto[];
+}

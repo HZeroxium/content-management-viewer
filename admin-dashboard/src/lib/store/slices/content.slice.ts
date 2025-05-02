@@ -4,14 +4,14 @@ import { ContentResponseDto, ContentBlockDto } from "@/lib/types/content";
 
 export interface ContentState {
   currentContent: ContentResponseDto | null;
-  isSaving: boolean;
+  loading: boolean;
   error: string | null;
   savedSuccess: boolean;
 }
 
 const initialState: ContentState = {
   currentContent: null,
-  isSaving: false,
+  loading: false,
   error: null,
   savedSuccess: false,
 };
@@ -53,19 +53,22 @@ const contentSlice = createSlice({
     },
     clearCurrentContent: (state) => {
       state.currentContent = null;
+      state.loading = false;
       state.error = null;
+      state.savedSuccess = false; // Reset success state when navigating away
     },
     saveStart: (state) => {
-      state.isSaving = true;
+      state.loading = true;
       state.error = null;
       state.savedSuccess = false;
     },
     saveSuccess: (state) => {
-      state.isSaving = false;
+      state.loading = false;
+      state.error = null;
       state.savedSuccess = true;
     },
     saveFailure: (state, action: PayloadAction<string>) => {
-      state.isSaving = false;
+      state.loading = false;
       state.error = action.payload;
       state.savedSuccess = false;
     },

@@ -28,12 +28,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       : HttpStatus.INTERNAL_SERVER_ERROR;
     const payload = exception.getResponse();
 
-    response.status(status).json({
+    const errorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       // payload may be string or object with message/details
-      error: typeof payload === 'string' ? payload : (payload as any).message,
-    });
+      error:
+        typeof payload === 'string'
+          ? payload
+          : (payload as any).message || 'An unexpected error occurred',
+    };
+
+    response.status(status).json(errorResponse);
   }
 }

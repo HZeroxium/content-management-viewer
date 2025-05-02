@@ -37,7 +37,7 @@ import {
   useDeleteFile,
 } from "@/lib/hooks/api/useFiles";
 import { UpdateFileDto } from "@/lib/types/file";
-import { formatFileSize, formatDateTime } from "@/lib/utils/format";
+import { formatFileSize, formatDateTime } from "@/utils/format";
 import Image from "next/image";
 
 interface ApiErrorResponse {

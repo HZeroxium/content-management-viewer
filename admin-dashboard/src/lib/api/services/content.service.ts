@@ -131,9 +131,7 @@ export const contentService = {
     }
   },
 
-  async permanentDelete(
-    id: string
-  ): Promise<{
+  async permanentDelete(id: string): Promise<{
     id: string;
     deleted: boolean;
     message: string;

@@ -27,7 +27,7 @@ import {
 import { useFiles } from "@/lib/hooks/api/useFiles";
 import SearchIcon from "@mui/icons-material/Search";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import { formatFileSize } from "@/lib/utils/format";
+import { formatFileSize } from "@/utils/format";
 import Link from "next/link";
 
 interface FileSelectorProps {

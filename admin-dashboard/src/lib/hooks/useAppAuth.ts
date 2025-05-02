@@ -3,15 +3,15 @@ import {
   setCredentials,
   clearCredentials,
 } from "@/lib/store/slices/auth.slice";
-import { useLogin, useLogout, useProfile } from "@/lib/hooks/api/useAuth";
+import { useLogout, useProfile } from "@/lib/hooks/api/useAuth";
 import { LoginDto } from "@/lib/types/auth";
 import { useCallback, useEffect } from "react";
 import { authService } from "../api/services/auth.service";
+import { getErrorMessage } from "@/lib/types/error";
 
 export function useAppAuth() {
   const dispatch = useAppDispatch();
   const { token, user } = useAppSelector((state) => state.auth);
-  const loginMutation = useLogin();
   const logoutMutation = useLogout();
   const {
     data: profileData,
@@ -54,17 +54,21 @@ export function useAppAuth() {
   const login = useCallback(
     async (credentials: LoginDto) => {
       try {
-        const { accessToken } = await loginMutation.mutateAsync(credentials);
-        // After login, fetch the profile
-        const profile = await authService.getProfile();
-        dispatch(setCredentials({ token: accessToken, user: profile }));
-        return profile;
+        const response = await authService.login(credentials);
+        dispatch(
+          setCredentials({
+            token: response.accessToken,
+            user: await authService.getProfile(), // Fetch user profile after login
+          })
+        );
       } catch (error) {
-        console.error("Login failed:", error);
-        throw error;
+        // Use enhanced error message extraction
+        const errorMessage = getErrorMessage(error);
+        console.error("Login error:", errorMessage);
+        throw new Error(errorMessage);
       }
     },
-    [loginMutation, dispatch]
+    [dispatch]
   );
 
   const logout = useCallback(async () => {

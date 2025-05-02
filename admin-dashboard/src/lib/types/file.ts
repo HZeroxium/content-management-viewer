@@ -5,7 +5,7 @@
  */
 export interface UploadFileDto {
   folder?: string;
-  fileName?: string;
+  fileName?: string; // Make sure this matches the backend DTO field name
   isPrivate?: boolean;
   metadata?: Record<string, string>;
 }
@@ -34,8 +34,8 @@ export interface FileResponseDto {
   folder: string | null;
   isPrivate: boolean;
   metadata: Record<string, string>;
-  createdAt: string;    // ISO date
-  updatedAt: string;    // ISO date
+  createdAt: string; // ISO date
+  updatedAt: string; // ISO date
   createdBy: string;
   updatedBy: string;
   deletedAt: string | null;

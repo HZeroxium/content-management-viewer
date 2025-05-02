@@ -25,7 +25,6 @@ import {
   useTheme,
   useMediaQuery,
   Tooltip,
-  Chip,
   Grid,
   Dialog,
   DialogActions,
@@ -36,7 +35,6 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import SearchIcon from "@mui/icons-material/Search";
-import FilterListIcon from "@mui/icons-material/FilterList";
 import SortIcon from "@mui/icons-material/Sort";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -79,7 +77,6 @@ export default function ContentTable({
   const [filteredRows, setFilteredRows] = useState<ContentResponseDto[]>(rows);
   const [sortField, setSortField] = useState<keyof ContentResponseDto>("title");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [localFiltering, setLocalFiltering] = useState(false);
 
   // Action dialogs state
@@ -101,7 +98,7 @@ export default function ContentTable({
   // Update filtered rows whenever props or filters change
   useEffect(() => {
     // Check if we need local filtering
-    const needsLocalFiltering = searchTerm !== "" || statusFilter !== "all";
+    const needsLocalFiltering = searchTerm !== "";
     setLocalFiltering(needsLocalFiltering);
 
     let result = [...rows];
@@ -115,16 +112,6 @@ export default function ContentTable({
             content.description
               .toLowerCase()
               .includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    // Apply status filter if content has metadata.status field
-    if (statusFilter !== "all") {
-      result = result.filter(
-        (content) =>
-          content.metadata &&
-          typeof content.metadata.status === "string" &&
-          content.metadata.status === statusFilter
       );
     }
 
@@ -154,7 +141,7 @@ export default function ContentTable({
     });
 
     setFilteredRows(result);
-  }, [rows, searchTerm, statusFilter, sortField, sortDirection]);
+  }, [rows, searchTerm, sortField, sortDirection]);
 
   // We only do local pagination if we're also doing local filtering
   const displayedRows = localFiltering
@@ -241,65 +228,11 @@ export default function ContentTable({
     });
   };
 
-  // Get status chip color based on content status
-  const getStatusColor = (
-    status?: string
-  ):
-    | "default"
-    | "primary"
-    | "secondary"
-    | "error"
-    | "info"
-    | "success"
-    | "warning" => {
-    switch (status) {
-      case "published":
-        return "success";
-      case "draft":
-        return "info";
-      case "archived":
-        return "warning";
-      default:
-        return "default";
-    }
-  };
-
-  // Get block type icon based on first block
-  const getContentTypeInfo = (
-    content: ContentResponseDto
-  ): {
-    label: string;
-    color:
-      | "default"
-      | "primary"
-      | "secondary"
-      | "error"
-      | "info"
-      | "success"
-      | "warning";
-  } => {
-    if (!content.blocks || content.blocks.length === 0) {
-      return { label: "Empty", color: "default" };
-    }
-
-    const firstBlock = content.blocks[0];
-    switch (firstBlock.type) {
-      case "image":
-        return { label: "Image", color: "success" };
-      case "video":
-        return { label: "Video", color: "error" };
-      case "text":
-        return { label: "Text", color: "primary" };
-      default:
-        return { label: "Mixed", color: "info" };
-    }
-  };
-
   return (
     <Box sx={{ width: "100%" }}>
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {/* Search Field */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <TextField
             fullWidth
             variant="outlined"
@@ -316,30 +249,8 @@ export default function ContentTable({
           />
         </Grid>
 
-        {/* Filter by Status */}
-        <Grid size={{ xs: 6, md: 3 }}>
-          <FormControl fullWidth>
-            <InputLabel id="status-filter-label">Filter by Status</InputLabel>
-            <Select
-              labelId="status-filter-label"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              startAdornment={
-                <InputAdornment position="start">
-                  <FilterListIcon />
-                </InputAdornment>
-              }
-            >
-              <MenuItem value="all">All Status</MenuItem>
-              <MenuItem value="published">Published</MenuItem>
-              <MenuItem value="draft">Draft</MenuItem>
-              <MenuItem value="archived">Archived</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
         {/* Sort Field */}
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <FormControl fullWidth>
             <InputLabel id="sort-field-label">Sort By</InputLabel>
             <Select
@@ -378,7 +289,7 @@ export default function ContentTable({
                 </TableCell>
                 {!isMobile && (
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                    Type
+                    Blocks
                   </TableCell>
                 )}
                 {!isMobile && (
@@ -419,15 +330,6 @@ export default function ContentTable({
                       <Typography variant="body2" fontWeight="medium">
                         {content.title}
                       </Typography>
-                      {content.metadata &&
-                        typeof content.metadata.status === "string" && (
-                          <Chip
-                            size="small"
-                            label={content.metadata.status}
-                            color={getStatusColor(content.metadata.status)}
-                            sx={{ mt: 0.5 }}
-                          />
-                        )}
                       {content.description && (
                         <Typography
                           variant="caption"
@@ -448,13 +350,7 @@ export default function ContentTable({
 
                     {!isMobile && (
                       <TableCell>
-                        <Chip
-                          size="small"
-                          label={getContentTypeInfo(content).label}
-                          color={getContentTypeInfo(content).color}
-                          variant="outlined"
-                        />
-                        <Typography variant="caption" display="block" mt={0.5}>
+                        <Typography variant="body2">
                           {content.blocks?.length || 0} blocks
                         </Typography>
                       </TableCell>

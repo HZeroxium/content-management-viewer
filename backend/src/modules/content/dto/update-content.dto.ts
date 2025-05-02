@@ -1,6 +1,6 @@
 // /src/modules/content/dto/update-content.dto.ts
 
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateContentDto } from './create-content.dto';
+import { CreateContentWithBlocksDto } from './create-content-with-blocks.dto';
 
-export class UpdateContentDto extends PartialType(CreateContentDto) {}
+export class UpdateContentDto extends PartialType(CreateContentWithBlocksDto) {}

@@ -47,6 +47,10 @@ export const useUploadFile = () => {
     mutationFn: ({ file, dto }: { file: File; dto: UploadFileDto }) =>
       filesService.upload(file, dto),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
+    onError: (error) => {
+      // Log detailed error information
+      console.error("File upload mutation error:", error);
+    },
   });
 };
 

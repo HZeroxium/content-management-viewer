@@ -27,14 +27,18 @@ export default function ContentBlockEditor({
   const [fileSelectorOpen, setFileSelectorOpen] = useState(false);
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(
     block.type === "image" || block.type === "video"
-      ? block.metadata?.fileUrl || null
+      ? typeof block.url === "string"
+        ? block.url
+        : typeof block.metadata?.fileUrl === "string"
+        ? block.metadata.fileUrl
+        : null
       : null
   );
 
   const handleTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     onChange({
       ...block,
-      content: event.target.value,
+      text: event.target.value,
     });
   };
 
@@ -42,6 +46,7 @@ export default function ContentBlockEditor({
     setSelectedFileUrl(fileUrl);
     onChange({
       ...block,
+      url: fileUrl, // Set URL directly on the block
       metadata: {
         ...block.metadata,
         fileId: fileId,
@@ -60,7 +65,7 @@ export default function ContentBlockEditor({
             multiline
             minRows={3}
             maxRows={10}
-            value={block.content || ""}
+            value={block.text || ""}
             onChange={handleTextChange}
             variant="outlined"
             placeholder="Enter text content..."
@@ -105,12 +110,12 @@ export default function ContentBlockEditor({
                 Select Image
               </Button>
             )}
-            {block.content && (
+            {block.text && (
               <TextField
                 fullWidth
                 margin="normal"
                 label="Image Caption"
-                value={block.content}
+                value={block.text}
                 onChange={handleTextChange}
                 variant="outlined"
               />
@@ -155,12 +160,12 @@ export default function ContentBlockEditor({
                 Select Video
               </Button>
             )}
-            {block.content && (
+            {block.text && (
               <TextField
                 fullWidth
                 margin="normal"
                 label="Video Caption"
-                value={block.content}
+                value={block.text}
                 onChange={handleTextChange}
                 variant="outlined"
               />

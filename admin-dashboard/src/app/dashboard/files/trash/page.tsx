@@ -32,7 +32,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RestoreIcon from "@mui/icons-material/Restore";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import { formatFileSize, formatDateTime } from "@/lib/utils/format";
+import { formatFileSize, formatDateTime } from "@/utils/format";
 import {
   useFiles,
   useRestoreFile,
@@ -105,7 +105,17 @@ export default function DeletedFilesPage() {
   // Get file type icon and color based on MIME type
   const getFileTypeInfo = (
     contentType: string
-  ): { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' } => {
+  ): {
+    label: string;
+    color:
+      | "default"
+      | "primary"
+      | "secondary"
+      | "error"
+      | "info"
+      | "success"
+      | "warning";
+  } => {
     if (contentType.startsWith("image/")) {
       return { label: "Image", color: "success" };
     }

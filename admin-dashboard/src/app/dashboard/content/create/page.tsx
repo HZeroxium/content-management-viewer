@@ -1,16 +1,17 @@
 // src/app/dashboard/content/create/page.tsx
 "use client";
 
-import React from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Container, CircularProgress } from "@mui/material";
 
 export default function CreateContentPage() {
   const router = useRouter();
 
-  // Simply redirect to the content editor with "create" as ID
-  React.useEffect(() => {
-    router.replace("/dashboard/content/create");
+  // Redirect to the content detail page with "new" as ID
+  // This avoids the conflict with the static "create" route
+  useEffect(() => {
+    router.replace("/dashboard/content/new");
   }, [router]);
 
   return (

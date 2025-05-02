@@ -11,11 +11,7 @@ import {
   useDeleteContent,
   useCreateContent,
 } from "@/lib/hooks/api/useContents";
-import {
-  ContentResponseDto,
-  ContentBlockDto,
-  UpdateContentDto,
-} from "@/lib/types/content";
+import { ContentResponseDto, ContentBlockDto } from "@/lib/types/content";
 import {
   Box,
   Button,
@@ -37,7 +33,6 @@ import {
   DialogTitle,
   Tabs,
   Tab,
-  MenuItem,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
@@ -49,9 +44,15 @@ import {
   saveStart,
   saveFailure,
   clearCurrentContent,
+  saveSuccess as saveSuccessAction,
 } from "@/lib/store/slices/content.slice";
 import ContentBlockEditor from "./ContentBlockEditor";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "@hello-pangea/dnd";
 import { v4 as uuidv4 } from "uuid";
 
 // Block with a local ID for drag and drop
@@ -61,12 +62,12 @@ interface BlockWithId extends ContentBlockDto {
 
 export default function ContentDetailPage() {
   const router = useRouter();
-  const params = useParams();
   const dispatch = useAppDispatch();
   const contentError = useAppSelector((state) => state.contents.error);
   const saveStatus = useAppSelector((state) => state.contents.savedSuccess);
-  const id = params?.id as string;
-  const isEditMode = id !== "create";
+  const params = useParams();
+  const id = params.id as string;
+  const isEditMode = id !== "create" && id !== "new";
 
   const [content, setContent] = useState<ContentResponseDto | null>(null);
   const [blocks, setBlocks] = useState<BlockWithId[]>([]);
@@ -123,26 +124,40 @@ export default function ContentDetailPage() {
     }
   }, [saveSuccess]);
 
+  // Use isNewContent in a useEffect to set document title
+  const isNewContent = !!(
+    params.id === "new" || typeof content?.id === "undefined"
+  );
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.title = isNewContent
+        ? "Create New Content - Admin Dashboard"
+        : `Edit Content: ${content?.title || ""} - Admin Dashboard`;
+    }
+  }, [isNewContent, content?.title]);
+
   const handleSave = async () => {
     if (!content) return;
 
     try {
       dispatch(saveStart());
 
-      const updatedContent: UpdateContentDto = {
-        title: content.title,
-        description: content.description,
-        blocks: blocks.map(({ localId, ...blockData }) => blockData),
-        metadata: content.metadata,
+      // Ensure all properties meet the required types for both DTOs
+      const contentData = {
+        title: content.title || "", // Ensure never undefined
+        description: content.description || "",
+        blocks: blocks.map(({ localId: _, ...blockData }) => blockData), // Explicitly ignore localId
+        metadata: content.metadata || {},
       };
 
       if (isEditMode) {
-        await updateContentMutation.mutateAsync(updatedContent);
+        await updateContentMutation.mutateAsync(contentData);
       } else {
-        await createContentMutation.mutateAsync(updatedContent);
+        await createContentMutation.mutateAsync(contentData);
       }
 
-      dispatch(saveSuccess());
+      dispatch(saveSuccessAction());
       setSaveSuccess(true);
 
       if (!isEditMode) {
@@ -179,13 +194,10 @@ export default function ContentDetailPage() {
   const handleAddBlock = (type: "text" | "image" | "video") => {
     const newBlock: BlockWithId = {
       type,
-      localId: `block-${uuidv4()}`,
+      text: "",
+      localId: uuidv4(), // localId is used for drag-and-drop identification
       metadata: { position: blocks.length },
     };
-
-    if (type === "text") {
-      newBlock.content = "";
-    }
 
     setBlocks([...blocks, newBlock]);
   };
@@ -205,10 +217,7 @@ export default function ContentDetailPage() {
     setBlocks(updatedBlocks);
   };
 
-  const handleDragEnd = (result: {
-    destination?: { index: number };
-    source: { index: number };
-  }) => {
+  const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
     const items = Array.from(blocks);
@@ -484,28 +493,13 @@ export default function ContentDetailPage() {
 
         {activeTab === 2 && (
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                select
-                label="Content Status"
-                fullWidth
-                value={content?.metadata?.status || "draft"}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setContent((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          metadata: { ...prev.metadata, status: value },
-                        }
-                      : null
-                  );
-                }}
-              >
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="published">Published</MenuItem>
-                <MenuItem value="archived">Archived</MenuItem>
-              </TextField>
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="h6" gutterBottom>
+                Advanced Settings
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                Additional settings will be available in future updates.
+              </Typography>
             </Grid>
 
             {isEditMode && (
