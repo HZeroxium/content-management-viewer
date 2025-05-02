@@ -1,3 +1,5 @@
+// /src/app/content/components/FeaturedCarousel.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -33,12 +35,19 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
     const imageBlock = content.blocks?.find(
       (block) => block.type === "image" && (block.url || block.metadata?.src)
     );
-    
-    return imageBlock?.url || (imageBlock?.metadata?.src as string) || "/placeholder-image.jpg";
+
+    return (
+      imageBlock?.url ||
+      (imageBlock?.metadata?.src as string) ||
+      "/placeholder-image.svg"
+    );
   };
 
   // Generate a short excerpt from content
-  const getContentExcerpt = (content: ContentResponseDto, maxLength = 160): string => {
+  const getContentExcerpt = (
+    content: ContentResponseDto,
+    maxLength = 160
+  ): string => {
     // Use description if available
     if (content.description) {
       return content.description.length > maxLength
@@ -49,7 +58,7 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
     // Otherwise, try to get text from the first text block
     const textBlock = content.blocks?.find((block) => block.type === "text");
     if (textBlock?.text) {
-      const plainText = textBlock.text.replace(/<[^>]+>/g, ''); // Strip HTML tags
+      const plainText = textBlock.text.replace(/<[^>]+>/g, ""); // Strip HTML tags
       return plainText.length > maxLength
         ? `${plainText.substring(0, maxLength)}...`
         : plainText;
@@ -82,7 +91,9 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
   const prevSlide = () => {
     if (items.length <= 1) return;
     setDirection(-1);
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + items.length) % items.length);
+    setCurrentIndex(
+      (prevIndex) => (prevIndex - 1 + items.length) % items.length
+    );
     setAutoplayEnabled(false);
   };
 
@@ -128,8 +139,8 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
   const currentItem = items[currentIndex];
 
   return (
-    <Box 
-      sx={{ 
+    <Box
+      sx={{
         position: "relative",
         height: { xs: 300, sm: 350, md: 450, lg: 500 },
         backgroundColor: "black",
@@ -147,14 +158,16 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
             position: "absolute",
             width: "100%",
             height: "100%",
-            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%), url(${getContentImage(currentItem)})`,
+            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%), url(${getContentImage(
+              currentItem
+            )})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         >
           {/* Content Overlay */}
-          <Box 
-            sx={{ 
+          <Box
+            sx={{
               position: "absolute",
               bottom: 0,
               left: 0,
@@ -163,10 +176,10 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
               color: "white",
             }}
           >
-            <Typography 
-              variant={isMobile ? "h5" : "h3"} 
-              component="h2" 
-              sx={{ 
+            <Typography
+              variant={isMobile ? "h5" : "h3"}
+              component="h2"
+              sx={{
                 fontWeight: "bold",
                 textShadow: "0px 2px 4px rgba(0,0,0,0.5)",
                 mb: 1,
@@ -174,11 +187,11 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
             >
               {currentItem.title}
             </Typography>
-            
+
             {!isMobile && (
-              <Typography 
-                variant="body1" 
-                sx={{ 
+              <Typography
+                variant="body1"
+                sx={{
                   maxWidth: "70%",
                   textShadow: "0px 1px 2px rgba(0,0,0,0.7)",
                   mb: 3,
@@ -199,7 +212,7 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
               color="primary"
               size={isMobile ? "small" : "medium"}
               startIcon={<VisibilityIcon />}
-              sx={{ 
+              sx={{
                 borderRadius: 6,
                 px: 3,
                 textTransform: "none",

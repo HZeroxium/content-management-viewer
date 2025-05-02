@@ -1,3 +1,5 @@
+// /src/app/content/page.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -102,7 +104,7 @@ export default function ContentPage() {
     return (
       imageBlock?.url ||
       (imageBlock?.metadata?.src as string) ||
-      "/placeholder-image.jpg"
+      "/placeholder-image.svg"
     );
   };
 
@@ -567,10 +569,10 @@ export default function ContentPage() {
           )}
 
           {/* Pagination */}
-          {data && data.meta && data.meta.total > 1 && (
+          {data && data.meta && data.meta.pages > 1 && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 6 }}>
               <Pagination
-                count={data.meta.total}
+                count={data.meta.pages}
                 page={page}
                 onChange={handlePageChange}
                 color="primary"

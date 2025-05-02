@@ -32,7 +32,7 @@ export class FileValidatorService {
   ];
 
   // Max file size (10 MB by default)
-  private readonly maxFileSize = 10 * 1024 * 1024;
+  private readonly maxFileSize = 100 * 1024 * 1024;
 
   validateFile(
     file: Express.Multer.File,

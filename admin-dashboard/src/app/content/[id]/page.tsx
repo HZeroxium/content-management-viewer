@@ -1,3 +1,5 @@
+// /src/app/content/[id]/page.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -157,7 +159,7 @@ export default function ContentPage() {
         <Button
           variant="contained"
           startIcon={<ArrowBackIcon />}
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/content")}
           sx={{ borderRadius: 2 }}
         >
           Back to Home
@@ -246,7 +248,7 @@ export default function ContentPage() {
                 "& .MuiBreadcrumbs-ol": { flexWrap: "nowrap" },
               }}
             >
-              <Link href="/" passHref>
+              <Link href="/content" passHref>
                 <MuiLink
                   underline="hover"
                   sx={{
@@ -257,7 +259,7 @@ export default function ContentPage() {
                   }}
                 >
                   <HomeIcon fontSize="small" sx={{ mr: 0.5 }} />
-                  <Typography variant="body2">Home</Typography>
+                  <Typography variant="body2">Content</Typography>
                 </MuiLink>
               </Link>
               <Typography

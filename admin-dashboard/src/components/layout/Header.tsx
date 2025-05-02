@@ -82,13 +82,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
 
         <Box sx={{ display: "flex", alignItems: "center" }}>
           {/* Socket connection status */}
-          <Tooltip
+          {/* <Tooltip
             title={socketConnected ? "Connected to server" : "Disconnected"}
           >
             <Box sx={{ mx: 1 }}>
               <ConnectionStatus />
             </Box>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* Dark mode toggle */}
           <Tooltip

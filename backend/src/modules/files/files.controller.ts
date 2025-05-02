@@ -99,7 +99,7 @@ export class FilesController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          new MaxFileSizeValidator({ maxSize: 100 * 1024 * 1024 }), // 10MB
           // FileTypeValidator removed - relying on service validation
         ],
         fileIsRequired: true,
