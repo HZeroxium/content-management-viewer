@@ -17,6 +17,7 @@ export const endpoints = {
   files: {
     root: "/files",
     upload: "/files/upload",
+    deleted: "/files/deleted",
     storageDelete: (key: string) => `/files/storage/${key}`,
     storageList: "/files/storage/list",
     restore: (id: string) => `/files/${id}/restore`,

@@ -43,6 +43,40 @@ export class FilesController {
   }
 
   /**
+   * GET /files/deleted
+   * Get deleted files with pagination
+   * Admin only
+   */
+  @Roles('admin')
+  @Get('deleted')
+  findDeleted(@Query() query: PaginationQueryDto) {
+    return this.filesService.findDeleted(query);
+  }
+
+  /**
+   * GET /files/storage/list
+   * List files in DigitalOcean Spaces
+   * Admin only
+   */
+  @Roles('admin')
+  @Get('storage/list')
+  async listFilesInStorage(
+    @Query('folder') folder?: string,
+    @Query('maxKeys') maxKeys?: number,
+  ) {
+    const result = await this.filesService.listFilesInStorage(
+      folder,
+      maxKeys ? parseInt(maxKeys.toString()) : 1000,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: 'Files listed successfully',
+    };
+  }
+
+  /**
    * GET /files/:id
    * Get a single file by ID
    * Editors & Admins only
@@ -180,29 +214,6 @@ export class FilesController {
     return {
       success: true,
       message: 'File deleted successfully from storage',
-    };
-  }
-
-  /**
-   * GET /files/storage/list
-   * List files in DigitalOcean Spaces
-   * Admin only
-   */
-  @Roles('admin')
-  @Get('storage/list')
-  async listFilesInStorage(
-    @Query('folder') folder?: string,
-    @Query('maxKeys') maxKeys?: number,
-  ) {
-    const result = await this.filesService.listFilesInStorage(
-      folder,
-      maxKeys ? parseInt(maxKeys.toString()) : 1000,
-    );
-
-    return {
-      success: true,
-      data: result,
-      message: 'Files listed successfully',
     };
   }
 }

@@ -54,6 +54,49 @@ export abstract class BaseCrudService<T, CreateDto, UpdateDto, ResponseDto> {
     }
   }
 
+  async findDeleted(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<ResponseDto>> {
+    try {
+      const { skip, limit = 10, sort, order } = query;
+
+      // Build filter to only include soft-deleted items
+      const filter = { deletedAt: { $ne: null } };
+
+      // Build sort options
+      const sortOptions: Record<string, 1 | -1> = {};
+      if (sort) {
+        sortOptions[sort] = order === 'desc' ? -1 : 1;
+      } else {
+        // Default sort deleted items by deletedAt descending
+        sortOptions['deletedAt'] = -1;
+      }
+
+      // Execute query with pagination
+      const [items, total] = await Promise.all([
+        this.model
+          .find(filter)
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .exec(),
+        this.model.countDocuments(filter).exec(),
+      ]);
+
+      // Transform to DTOs using abstract method
+      const dtos = items.map((item) => this.toResponseDto(item));
+
+      return PaginatedResponseDto.create(dtos, total, query);
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch deleted items: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to fetch deleted items');
+    }
+  }
+
   async findOne(id: string): Promise<ResponseDto> {
     const item = await this.model
       .findOne({ _id: id, deletedAt: null })

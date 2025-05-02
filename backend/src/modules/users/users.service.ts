@@ -92,7 +92,38 @@ export class UsersService {
   async findDeletedPaginated(
     query: PaginationQueryDto,
   ): Promise<PaginatedResponseDto<UserResponseDto>> {
-    return this.findAllPaginated(query, true);
+    const { skip, limit = 10, sort, order } = query;
+
+    // Build filter to only include soft-deleted users
+    const filter = { deletedAt: { $ne: null } };
+
+    // Build sort options
+    const sortOptions: Record<string, 1 | -1> = {};
+    if (sort) {
+      sortOptions[sort] = order === 'desc' ? -1 : 1;
+    } else {
+      // Default sort deleted items by deletedAt descending
+      sortOptions['deletedAt'] = -1;
+    }
+
+    // Execute query with pagination
+    const [users, total] = await Promise.all([
+      this.userModel
+        .find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .select('-password')
+        .lean()
+        .exec(),
+      this.userModel.countDocuments(filter).exec(),
+    ]);
+
+    // Map results to DTOs
+    const userDtos = users.map((user) => UserResponseDto.fromEntity(user));
+
+    // Return paginated response
+    return PaginatedResponseDto.create(userDtos, total, query);
   }
 
   /**

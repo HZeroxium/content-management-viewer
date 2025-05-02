@@ -20,6 +20,10 @@ import { UpdateFileDto } from './dto/update-file.dto';
 import { BaseCrudService } from '@common/services/base-crud.service';
 import { S3StorageService } from '@common/services/storage.service';
 import { FileValidatorService } from './services/file-validator.service';
+import {
+  PaginationQueryDto,
+  PaginatedResponseDto,
+} from '@common/dto/pagination.dto';
 
 export interface FileUploadOptions {
   folder?: string;
@@ -239,5 +243,14 @@ export class FilesService extends BaseCrudService<
         'Error deleting file from storage',
       );
     }
+  }
+
+  /**
+   * Find deleted files with pagination
+   */
+  async findDeleted(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<FileResponseDto>> {
+    return super.findDeleted(query);
   }
 }

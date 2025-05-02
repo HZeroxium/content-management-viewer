@@ -20,6 +20,16 @@ export const filesService = {
     return data;
   },
 
+  async fetchDeleted(
+    params: PaginationQuery
+  ): Promise<PaginatedResponse<FileResponseDto>> {
+    const { data } = await api.get<PaginatedResponse<FileResponseDto>>(
+      endpoints.files.deleted,
+      { params }
+    );
+    return data;
+  },
+
   async fetchById(id: string): Promise<FileResponseDto> {
     const { data } = await api.get<FileResponseDto>(
       `${endpoints.files.root}/${id}`

@@ -125,42 +125,7 @@ export class ContentService extends BaseCrudService<
   async findDeleted(
     query: PaginationQueryDto,
   ): Promise<PaginatedResponseDto<ContentResponseDto>> {
-    try {
-      const { skip, limit = 10, sort, order } = query;
-
-      // Build filter for only deleted content
-      const filter = { deletedAt: { $ne: null } };
-
-      // Build sort options
-      const sortOptions: Record<string, 1 | -1> = {};
-      if (sort) {
-        sortOptions[sort] = order === 'desc' ? -1 : 1;
-      } else {
-        sortOptions['deletedAt'] = -1; // Default sort for deleted items
-      }
-
-      const [contents, total] = await Promise.all([
-        this.model
-          .find(filter)
-          .sort(sortOptions)
-          .skip(skip)
-          .limit(limit)
-          .lean()
-          .exec(),
-        this.model.countDocuments(filter).exec(),
-      ]);
-
-      const contentDtos = contents.map((content) =>
-        this.toResponseDto(content),
-      );
-      return PaginatedResponseDto.create(contentDtos, total, query);
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch deleted content: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException('Failed to fetch deleted content');
-    }
+    return super.findDeleted(query);
   }
 
   /**
