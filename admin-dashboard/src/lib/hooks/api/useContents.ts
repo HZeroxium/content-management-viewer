@@ -58,7 +58,9 @@ export function useContent(id: string) {
         console.log("Received real-time content update:", updatedContent);
 
         // Update the cache with new content data
-        queryClient.setQueryData(queryKey, updatedContent.data);
+        if (updatedContent && typeof updatedContent === 'object' && 'data' in updatedContent) {
+          queryClient.setQueryData(queryKey, updatedContent.data);
+        }
 
         // Show a toast notification
         // toast.info('Content has been updated');

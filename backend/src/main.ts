@@ -23,6 +23,11 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Health check endpoint
+  app.getHttpAdapter().get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+  });
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

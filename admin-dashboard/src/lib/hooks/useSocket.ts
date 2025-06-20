@@ -14,13 +14,11 @@ import { ContentResponseDto as Content } from "@/lib/types/content";
 export function useSocket() {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
-
   useEffect(() => {
     // Ensure socket is connected
-    socketService.connect();
-
-    // Setup additional event handlers for global events
-    const handleConnect = () => {
+    socketService.connect(); // Setup additional event handlers for global events
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const handleConnect = (...args: unknown[]) => {
       console.log("Socket connected successfully");
       dispatch(setSocketStatus(true));
 
@@ -28,7 +26,8 @@ export function useSocket() {
       window.dispatchEvent(new Event("socket:connected"));
     };
 
-    const handleDisconnect = (reason: string) => {
+    const handleDisconnect = (...args: unknown[]) => {
+      const reason = args[0] as string;
       console.log("Socket disconnected:", reason);
       dispatch(setSocketStatus(false));
 
@@ -36,7 +35,8 @@ export function useSocket() {
       window.dispatchEvent(new Event("socket:disconnected"));
     };
 
-    const handleConnectError = (error: Error) => {
+    const handleConnectError = (...args: unknown[]) => {
+      const error = args[0] as Error;
       console.error("Socket connection error:", error);
       dispatch(setSocketStatus(false));
 
@@ -44,11 +44,13 @@ export function useSocket() {
       window.dispatchEvent(new Event("socket:disconnected"));
     };
 
-    const handleContentUpdated = (payload: {
-      action: string;
-      content?: Content;
-      id?: string;
-    }) => {
+    const handleContentUpdated = (...args: unknown[]) => {
+      const payload = args[0] as {
+        action: string;
+        content?: Content;
+        id?: string;
+      };
+
       // Invalidate list queries
       queryClient.invalidateQueries({ queryKey: ["content", "list"] });
 
@@ -135,20 +137,21 @@ export function useSocketSubscription(contentId?: string) {
     // Clean up previous subscription if exists
     if (subscription.current) {
       subscription.current();
-    }
-
-    // Create new subscription
+    } // Create new subscription
     subscription.current = socketService.subscribeToContentUpdates(
       contentId,
       (data) => {
-        setLastUpdate(data);
+        const typedData = data as ContentUpdate;
+        setLastUpdate(typedData);
 
         // Update the React Query cache
-        if (data?.data) {
-          queryClient.setQueryData(["content", contentId], data.data);
+        if (typedData?.data) {
+          queryClient.setQueryData(["content", contentId], typedData.data);
 
           // Show a notification - could dispatch a custom event here
-          const event = new CustomEvent("content:updated", { detail: data });
+          const event = new CustomEvent("content:updated", {
+            detail: typedData,
+          });
           window.dispatchEvent(event);
         }
       }

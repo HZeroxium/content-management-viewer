@@ -86,7 +86,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 // Block with a local ID for drag and drop
-interface BlockWithId extends ContentBlockDto {
+interface BlockWithId extends Omit<ContentBlockDto, "localId"> {
   localId: string;
 }
 
@@ -253,13 +253,14 @@ export default function ContentDetailPage() {
 
     try {
       setIsExiting(true);
-      dispatch(saveStart());
-
-      // Ensure all properties meet the required types for both DTOs
+      dispatch(saveStart()); // Ensure all properties meet the required types for both DTOs
       const contentData = {
         title: content.title || "",
-        description: content.description || "",
-        blocks: blocks.map(({ localId: _localId, ...blockData }) => blockData),
+        description: content.description || "", // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        blocks: blocks.map(({ localId: _localId, ...blockData }, index) => ({
+          ...blockData,
+          localId: index, // Use index as localId for API
+        })),
         metadata: content.metadata || {},
       };
 
@@ -337,7 +338,6 @@ export default function ContentDetailPage() {
       setActiveTab(1);
     }
   };
-
   const handleUpdateBlock = useCallback(
     (index: number, updatedBlock: ContentBlockDto) => {
       setBlocks((prevBlocks) => {
@@ -345,6 +345,7 @@ export default function ContentDetailPage() {
         updatedBlocks[index] = {
           ...updatedBlocks[index],
           ...updatedBlock,
+          localId: updatedBlocks[index].localId, // Preserve the string localId
         };
         blocksRef.current = updatedBlocks;
         return updatedBlocks;
@@ -408,7 +409,10 @@ export default function ContentDetailPage() {
   );
 
   // Update title/description without resetting blocks
-  const handleContentChange = (field: keyof ContentResponseDto, value: any) => {
+  const handleContentChange = (
+    field: keyof ContentResponseDto,
+    value: ContentResponseDto[keyof ContentResponseDto]
+  ) => {
     setContent((prev) => {
       const updated = prev ? { ...prev, [field]: value } : null;
       if (updated) contentRef.current = updated;
@@ -418,7 +422,7 @@ export default function ContentDetailPage() {
   };
 
   // Tab change with animation
-  const handleTabChange = (_: any, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
 

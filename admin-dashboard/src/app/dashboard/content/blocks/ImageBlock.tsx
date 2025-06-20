@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { Box, Button, CircularProgress, Typography } from "@mui/material";
 import Image from "next/image";
-import { ContentBlockProps } from "@/lib/types/content-block";
+import { ContentBlockDto as ContentBlockProps } from "@/lib/types/content";
 import UploadIcon from "@mui/icons-material/Upload";
 
 interface ImageBlockProps extends ContentBlockProps {

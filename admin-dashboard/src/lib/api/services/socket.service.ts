@@ -7,7 +7,8 @@ class SocketService {
   private reconnectInterval: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
-  private eventListeners: Map<string, ((...args: any[]) => void)[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> =
+    new Map();
 
   constructor() {
     this.setupSocketListeners = this.setupSocketListeners.bind(this);
@@ -111,7 +112,7 @@ class SocketService {
   }
 
   // Add event listener
-  addListener(event: string, callback: (...args: any[]) => void) {
+  addListener(event: string, callback: (...args: unknown[]) => void) {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
@@ -119,7 +120,7 @@ class SocketService {
   }
 
   // Remove event listener
-  removeListener(event: string, callback: (...args: any[]) => void) {
+  removeListener(event: string, callback: (...args: unknown[]) => void) {
     if (!this.eventListeners.has(event)) return;
 
     const callbacks = this.eventListeners.get(event) || [];
@@ -131,7 +132,7 @@ class SocketService {
   }
 
   // Trigger all event listeners for an event
-  private triggerListeners(event: string, ...args: any[]) {
+  private triggerListeners(event: string, ...args: unknown[]) {
     const callbacks = this.eventListeners.get(event) || [];
     callbacks.forEach((callback) => {
       try {
@@ -143,13 +144,25 @@ class SocketService {
   }
 
   // Subscribe to content updates for specific ID
-  subscribeToContentUpdates(contentId: string, callback: (data: any) => void) {
+  subscribeToContentUpdates(
+    contentId: string,
+    callback: (data: unknown) => void
+  ) {
     if (!this.socket) this.connect();
 
     // Listen for all content updates
-    const contentUpdateHandler = (data: any) => {
+    const contentUpdateHandler = (data: unknown) => {
       // Only process updates for the specific content we're watching
-      if (data.id === contentId || data.data?.id === contentId) {
+      if (
+        (data &&
+          typeof data === "object" &&
+          "id" in data &&
+          (data as { id: string }).id === contentId) ||
+        (data &&
+          typeof data === "object" &&
+          "data" in data &&
+          (data as { data?: { id?: string } }).data?.id === contentId)
+      ) {
         callback(data);
       }
     };

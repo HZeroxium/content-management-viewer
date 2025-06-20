@@ -19,9 +19,6 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import { useAppAuth } from "@/lib/hooks/useAppAuth";
-import { ConnectionStatus } from "./ConnectionStatus";
-import { useSelector } from "react-redux";
-import { RootState } from "@/lib/store";
 import { useSocket } from "@/lib/hooks/useSocket";
 import { useTheme } from "@/contexts/theme-context";
 
@@ -32,7 +29,6 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAppAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const socketConnected = useSelector((s: RootState) => s.ui.socketConnected);
   const { currentTheme, toggleTheme } = useTheme();
 
   // Initialize the WebSocket connection

@@ -32,7 +32,7 @@ export default function ErrorDisplay({
   severity = "error",
   showDetails = process.env.NODE_ENV === "development",
   onRetry,
-}: ErrorDisplayProps) {
+}: ErrorDisplayProps): React.ReactElement | null {
   const [expanded, setExpanded] = React.useState(false);
 
   if (!error) return null;
@@ -45,10 +45,13 @@ export default function ErrorDisplay({
 
   // Handle array error messages for validation errors
   const renderErrorMessage = () => {
-    if (Array.isArray(formattedError?.response?.error)) {
+    const responseError = (
+      formattedError?.response as { error?: string[] | string }
+    )?.error;
+    if (Array.isArray(responseError)) {
       return (
         <Box component="ul" sx={{ mt: 1, pl: 2 }}>
-          {formattedError.response.error.map((msg, i) => (
+          {responseError.map((msg, i) => (
             <Typography component="li" variant="body2" key={i}>
               {msg}
             </Typography>

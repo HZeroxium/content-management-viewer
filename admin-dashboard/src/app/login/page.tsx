@@ -122,12 +122,11 @@ export default function LoginPage() {
           alignItems: "center",
         }}
       >
+        {" "}
         <Typography component="h1" variant="h5">
           Sign In
         </Typography>
-
-        {error && <ErrorDisplay error={error as Error} />}
-
+        {error ? <ErrorDisplay error={error} /> : null}
         <Box
           component="form"
           onSubmit={handleSubmit(onSubmit)}

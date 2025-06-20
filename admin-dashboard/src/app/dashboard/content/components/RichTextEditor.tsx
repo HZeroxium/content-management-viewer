@@ -13,7 +13,7 @@ import LinkIcon from "@mui/icons-material/Link";
 import FormatClearIcon from "@mui/icons-material/FormatClear";
 import TitleIcon from "@mui/icons-material/Title";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
@@ -21,7 +21,7 @@ import TextStyle from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 
 interface MenuBarProps {
-  editor: any;
+  editor: Editor | null;
 }
 
 const MenuBar: React.FC<MenuBarProps> = ({ editor }) => {

@@ -55,7 +55,6 @@ export default function ContentPage() {
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [shareTooltipText, setShareTooltipText] =
     useState("Copy link to share");
-
   // Fetch content data
   const { data: content, isLoading, error } = useContent(id);
 
@@ -148,13 +147,15 @@ export default function ContentPage() {
         <ErrorOutlineIcon sx={{ fontSize: 60, color: "error.main", mb: 2 }} />
         <Typography variant="h5" color="error" gutterBottom>
           Error Loading Content
-        </Typography>
+        </Typography>{" "}
         <Typography
           variant="body1"
           align="center"
           sx={{ mb: 3, maxWidth: 500 }}
         >
-          {error instanceof Error ? error.message : "An unknown error occurred"}
+          {error instanceof Error
+            ? error.message
+            : String(error) || "An unknown error occurred"}
         </Typography>
         <Button
           variant="contained"
@@ -513,6 +514,7 @@ export default function ContentPage() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.3 }}
                 >
+                  {" "}
                   {content?.blocks && content.blocks.length > 0 ? (
                     content.blocks.map((block, index) => (
                       <BlockRenderer

@@ -33,7 +33,7 @@ import RichTextEditor from "../components/RichTextEditor";
 import FileSelector from "./FileSelector";
 
 interface ContentBlockEditorProps {
-  block: ContentBlockDto & { localId?: string };
+  block: ContentBlockDto & { localId: string };
   onChange: (updatedBlock: ContentBlockDto) => void;
 }
 
@@ -673,5 +673,7 @@ const ContentBlockEditor = memo(
     );
   }
 );
+
+ContentBlockEditor.displayName = "ContentBlockEditor";
 
 export default ContentBlockEditor;

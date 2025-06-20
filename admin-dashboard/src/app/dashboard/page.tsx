@@ -46,7 +46,6 @@ import { format } from "date-fns";
 export default function DashboardPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.down("md"));
   const { user } = useAppAuth();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -234,8 +233,8 @@ export default function DashboardPage() {
                       color="text.secondary"
                       sx={{ mt: 1 }}
                     >
-                      Welcome to your admin dashboard. Here's what's happening
-                      today.
+                      Welcome to your admin dashboard. Here&apos;s what&apos;s
+                      happening today.
                     </Typography>
                     <Chip
                       icon={<AdminPanelSettingsIcon />}
@@ -416,7 +415,10 @@ export default function DashboardPage() {
               >
                 <MotionPaper
                   elevation={2}
-                  whileHover={{ y: -5, boxShadow: 10 }}
+                  whileHover={{
+                    y: -5,
+                    boxShadow: "0px 10px 30px rgba(0,0,0,0.3)",
+                  }}
                   transition={{ duration: 0.2 }}
                   sx={{
                     p: 3,

@@ -4,6 +4,7 @@
 
 // Define the content block types
 export interface ContentBlockDto {
+  localId: string | number;
   type: "text" | "image" | "video";
   text?: string; // For text blocks
   url?: string; // For image/video blocks

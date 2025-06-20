@@ -2,11 +2,15 @@
 
 "use client";
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { PaletteMode } from '@mui/material';
-import { getPalette } from '@/theme/palette';
+import React, { createContext, useState, useContext, useEffect } from "react";
+import {
+  ThemeProvider,
+  createTheme,
+  responsiveFontSizes,
+} from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { PaletteMode } from "@mui/material";
+import { getPalette } from "@/theme/palette";
 
 type ThemeContextType = {
   currentTheme: PaletteMode;
@@ -15,33 +19,35 @@ type ThemeContextType = {
 
 // Create context with default values
 const ThemeContext = createContext<ThemeContextType>({
-  currentTheme: 'light',
+  currentTheme: "light",
   toggleTheme: () => {},
 });
 
 export const useTheme = () => useContext(ThemeContext);
 
-export const ThemeContextProvider: React.FC<{ children: React.ReactNode }> = ({ 
-  children 
+export const ThemeContextProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
 }) => {
   // Initialize theme from localStorage if available, otherwise use 'light'
-  const [currentTheme, setCurrentTheme] = useState<PaletteMode>('light');
+  const [currentTheme, setCurrentTheme] = useState<PaletteMode>("light");
 
   // Load saved theme preference from localStorage on component mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme && (savedTheme === "light" || savedTheme === "dark")) {
       setCurrentTheme(savedTheme);
     } else {
       // Use system preference as fallback
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setCurrentTheme(prefersDark ? 'dark' : 'light');
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+      setCurrentTheme(prefersDark ? "dark" : "light");
     }
   }, []);
 
   // Save theme preference to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('theme', currentTheme);
+    localStorage.setItem("theme", currentTheme);
   }, [currentTheme]);
 
   // Create the theme object based on current mode selection
@@ -81,7 +87,7 @@ export const ThemeContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Toggle between light and dark mode
   const toggleTheme = () => {
-    setCurrentTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
+    setCurrentTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
 
   return (

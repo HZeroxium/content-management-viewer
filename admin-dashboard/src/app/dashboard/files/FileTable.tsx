@@ -842,7 +842,7 @@ export default function FileTable({
               }}
             >
               <Typography variant="subtitle2" color="error.main">
-                File to delete: "{fileNameToDelete}"
+                File to delete: &quot;{fileNameToDelete}&quot;
               </Typography>
             </Box>
           )}

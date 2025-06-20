@@ -416,12 +416,14 @@ export default function FileSelector({
                                 alignItems: "center",
                                 justifyContent: "center",
                                 bgcolor: alpha(
-                                  theme.palette[
-                                    getFileTypeInfo(file.contentType).color
-                                  ].main,
+                                  getFileTypeInfo(file.contentType).color === "default"
+                                    ? theme.palette.grey[500]
+                                    : theme.palette[
+                                        getFileTypeInfo(file.contentType).color as keyof Pick<typeof theme.palette, 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'>
+                                      ].main,
                                   0.1
                                 ),
-                                color: getFileTypeInfo(file.contentType).color,
+                                color: getFileTypeInfo(file.contentType).color === "default" ? "grey.600" : `${getFileTypeInfo(file.contentType).color}.main`,
                                 transition: "all 0.2s",
                               }}
                             >

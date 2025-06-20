@@ -68,6 +68,8 @@ interface Props {
   onPageSizeChange: (newSize: number) => void;
   canDelete?: boolean;
   isTrashView?: boolean;
+  onRestoreClick?: (id: string) => void;
+  onPermanentDeleteClick?: (id: string) => void;
 }
 
 export default function ContentTable({
@@ -80,6 +82,8 @@ export default function ContentTable({
   onPageSizeChange,
   canDelete = true,
   isTrashView = false,
+  onRestoreClick,
+  onPermanentDeleteClick,
 }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -197,7 +201,6 @@ export default function ContentTable({
     setSelectedContentTitle(title);
     setPermanentDeleteDialogOpen(true);
   };
-
   // Action handlers
   const handleDeleteConfirm = async () => {
     if (selectedContentId) {
@@ -217,6 +220,8 @@ export default function ContentTable({
         await restoreContentMutation.mutateAsync();
         setRestoreDialogOpen(false);
         setSelectedContentId(null);
+        // Call the optional callback
+        onRestoreClick?.(selectedContentId);
       } catch (error) {
         console.error("Error restoring content:", error);
       }
@@ -229,6 +234,8 @@ export default function ContentTable({
         await permanentDeleteContentMutation.mutateAsync();
         setPermanentDeleteDialogOpen(false);
         setSelectedContentId(null);
+        // Call the optional callback
+        onPermanentDeleteClick?.(selectedContentId);
       } catch (error) {
         console.error("Error permanently deleting content:", error);
       }
@@ -925,8 +932,9 @@ export default function ContentTable({
                 borderRadius: 1,
               }}
             >
+              {" "}
               <Typography variant="subtitle2" color="error.main">
-                Content to delete: "{selectedContentTitle}"
+                Content to delete: &ldquo;{selectedContentTitle}&rdquo;
               </Typography>
             </Box>
           )}
@@ -981,8 +989,9 @@ export default function ContentTable({
                 borderRadius: 1,
               }}
             >
+              {" "}
               <Typography variant="subtitle2" color="success.main">
-                Content to restore: "{selectedContentTitle}"
+                Content to restore: &ldquo;{selectedContentTitle}&rdquo;
               </Typography>
             </Box>
           )}
@@ -1044,12 +1053,14 @@ export default function ContentTable({
                 border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
               }}
             >
+              {" "}
               <Typography
                 variant="subtitle2"
                 color="error.main"
                 fontWeight="medium"
               >
-                Content to permanently delete: "{selectedContentTitle}"
+                Content to permanently delete: &ldquo;{selectedContentTitle}
+                &rdquo;
               </Typography>
             </Box>
           )}

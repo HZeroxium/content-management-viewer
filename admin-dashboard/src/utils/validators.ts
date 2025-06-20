@@ -13,6 +13,12 @@ export const imageFileSchema = z
   .refine((file) => file.size <= MAX_IMAGE_SIZE, {
     message: `Image must be ≤ ${MAX_IMAGE_SIZE / 1024 / 1024}MB`,
   })
-  .refine((file) => ALLOWED_IMAGE_TYPES.includes(file.type), {
-    message: `Image must be one of: ${ALLOWED_IMAGE_TYPES.join(", ")}`,
-  });
+  .refine(
+    (file) =>
+      ALLOWED_IMAGE_TYPES.includes(
+        file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
+      ),
+    {
+      message: `Image must be one of: ${ALLOWED_IMAGE_TYPES.join(", ")}`,
+    }
+  );
